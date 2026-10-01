@@ -44,6 +44,16 @@ from google.antigravity.tools import tool_runner
 from google.antigravity.types import QuestionResponse
 
 
+async def _let_event_loop_settle(iterations: int = 20) -> None:
+  """Yields to the event loop so already-queued callbacks can run.
+
+  Use this instead of a wall-clock sleep when asserting that something did NOT
+  happen: it drains pending work deterministically without adding latency.
+  """
+  for _ in range(iterations):
+    await asyncio.sleep(0)
+
+
 class LocalConnectionTest(unittest.IsolatedAsyncioTestCase):
 
   def setUp(self):
@@ -1017,8 +1027,12 @@ class LocalConnectionTest(unittest.IsolatedAsyncioTestCase):
 
     consume_task = asyncio.create_task(consume())
 
-    # Let the background consumer loop spin once
-    await asyncio.sleep(0.1)
+    # Wait until the background consumer has actually received the step.
+    async def wait_for_first_step() -> None:
+      while not steps:
+        await asyncio.sleep(0)
+
+    await asyncio.wait_for(wait_for_first_step(), timeout=2.0)
 
     # Programmatically cancel the turn
     await harness.conn.cancel()
@@ -1058,10 +1072,8 @@ class LocalConnectionTest(unittest.IsolatedAsyncioTestCase):
 
     # Trigger connection event dispatch
     await conn._handle_tool_call(raw_tool_call)
-    await asyncio.sleep(0.1)
 
-    self.assertFalse(conn._step_queue.empty())
-    step_obj = await conn._step_queue.get()
+    step_obj = await asyncio.wait_for(conn._step_queue.get(), timeout=2.0)
 
     actual_properties = {
         "id": step_obj.id,
@@ -1115,8 +1127,10 @@ class LocalConnectionTest(unittest.IsolatedAsyncioTestCase):
     wait_task_1 = asyncio.create_task(harness.conn.wait_for_idle())
     wait_task_2 = asyncio.create_task(harness.conn.wait_for_idle())
 
-    # Give tasks time to block
-    await asyncio.sleep(0.1)
+    # Let the tasks run until they block on the idle event.
+    await _let_event_loop_settle()
+    self.assertFalse(wait_task_1.done())
+    self.assertFalse(wait_task_2.done())
 
     # 2. Send trajectory_state_update indicating parent went idle
     await harness.send_event(
@@ -4334,7 +4348,7 @@ class LocalConnectionBuiltinToolHooksTest(unittest.IsolatedAsyncioTestCase):
 
     # Even if the step completes, PostToolCallHook must NOT fire.
     await harness.send_event(self._make_done_event(0, "traj_deny"))
-    await asyncio.sleep(0.1)
+    await _let_event_loop_settle()
     self.assertFalse(hook_fired.is_set())
 
   async def test_no_spurious_hook_for_non_builtin_step(self):
@@ -4372,7 +4386,7 @@ class LocalConnectionBuiltinToolHooksTest(unittest.IsolatedAsyncioTestCase):
             )
         )
     )
-    await asyncio.sleep(0.1)
+    await _let_event_loop_settle()
     self.assertFalse(hook_fired.is_set())
 
 
