@@ -3575,6 +3575,16 @@ class LocalConnectionSendTest(unittest.IsolatedAsyncioTestCase):
 
 class LocalAgentConfigTest(unittest.TestCase):
 
+  def setUp(self):
+    super().setUp()
+    # Keep these tests hermetic: don't require a real localharness binary.
+    patcher = mock.patch(
+        "google.antigravity.connections.local.local_connection._get_default_binary_path",
+        return_value="/fake/binary",
+    )
+    patcher.start()
+    self.addCleanup(patcher.stop)
+
   def test_create_strategy(self):
     config = local_connection_config.LocalAgentConfig(
         system_instructions="test instructions",

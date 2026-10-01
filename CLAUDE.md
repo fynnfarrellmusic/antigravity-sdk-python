@@ -25,8 +25,10 @@ python -m pytest google/antigravity/
 python -m pytest google/antigravity/agent_test.py
 
 # Run a single test
-python -m unittest google.antigravity.agent_test.AgentTest.test_agent_lifecycle
+python -m pytest google/antigravity/agent_test.py::AgentTest::test_agent_lifecycle
 ```
+
+Run tests with `pytest` (or run a test file directly as a script). Plain `python -m unittest` skips `google/antigravity/conftest.py`, which parses absl flags, so tests that use absl helpers such as `create_tempdir()` fail with `UnparsedFlagAccessError`.
 
 Dev dependencies: `pip install -e ".[dev]"`
 
