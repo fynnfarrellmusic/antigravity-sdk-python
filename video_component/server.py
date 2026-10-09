@@ -105,7 +105,11 @@ def run_job(job_id: str, req: VideoRequest) -> None:
         videos = getattr(operation.response, "generated_videos", None)
         if not videos:
             # Usually a safety filter on the prompt or output.
-            raise RuntimeError("No video returned (likely blocked by safety filters)")
+            reasons = getattr(operation.response, "rai_media_filtered_reasons", None)
+            raise RuntimeError(
+                "No video returned (blocked by safety filters: "
+                f"{'; '.join(reasons)})" if reasons else "No video returned"
+            )
 
         job["status"] = "downloading"
         video = videos[0]
