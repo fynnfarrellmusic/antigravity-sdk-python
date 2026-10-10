@@ -9,3 +9,4 @@ export * from './routes.ts';
 export * from './pathways.ts';
 export * from './gates.ts';
 export * from './vault.ts';
+export * from './people.ts';

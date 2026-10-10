@@ -67,12 +67,26 @@ describe('the app and the core stay in step', () => {
 
   it('sends every private key to the vault and only shared or open keys to plain storage', () => {
     const app = appSource();
-    assert.match(app, /const priv = classifyKey\(key\) === "private" && vault;/);
-    assert.match(app, /if \(priv\) vault\.put\(key, value\)/);
+    const persist = app.slice(app.indexOf('function usePersist'), app.indexOf('// ── vault:begin'));
+    assert.match(persist, /const priv = kind === "private" && vault;/);
+    const privateBranch = persist.slice(persist.indexOf('if (priv) {'), persist.indexOf('else if (!memoryOnly)'));
+    assert.match(privateBranch, /vault\.put\(key, value\)/, 'a private key is saved to the vault');
+    assert.doesNotMatch(privateBranch, /\bsave\(/, 'and never to plain storage');
+    assert.match(persist, /try \{ vault\.put\(key, value\)/, 'a write that lands just after locking cannot crash the screen');
   });
 
-  it('never lets "clear everything" delete the vault or its passphrase', () => {
-    assert.match(appSource(), /k\.startsWith\(NS\) && !k\.startsWith\(`\$\{NS\}vault:`\)/);
+  it('keeps shared things in memory only when using the app without saving', () => {
+    const app = appSource();
+    assert.match(app, /const memoryOnly = Boolean\(vault && vault\.ephemeral && kind === "shared"\);/);
+    assert.match(app, /else if \(!memoryOnly\) save\(key, value\);/);
+  });
+
+  it('clears only the person own things, and never everything on the phone', () => {
+    const app = appSource();
+    assert.doesNotMatch(app, /function clearAll\(/, 'nothing wipes all plain storage');
+    assert.match(app, /Clear my things from this phone/);
+    assert.match(app, /removeSharedTraces\(store, selfId\)/);
+    assert.match(app, /Our words, the other person's things and your display settings stay/);
   });
 
   it('keeps every key the app persists classed on purpose', () => {
@@ -84,7 +98,53 @@ describe('the app and the core stay in step', () => {
     const priv: string[] = used.filter((k) => !shared.includes(k) && !open.includes(k));
     assert.deepEqual([...shared].sort(), ['agreement', 'words']);
     assert.deepEqual(open, ['settings']);
-    assert.ok(priv.includes('profiles') && priv.includes('translations') && priv.includes('toolLog'), `private: ${priv}`);
+    for (const k of ['profile', 'translations', 'toolLog', 'shareSpoons', 'voiceSeen']) assert.ok(priv.includes(k), `${k} should be private`);
+    assert.ok(!used.includes('profiles'), 'the old combined profiles key is gone');
+  });
+
+  it('lets the other person be seen only through what they published, or as a labelled example', () => {
+    const app = appSource();
+    assert.match(app, /const publishedOther = otherRef \? readPublishedProfile\(store, otherRef\.id\) : null;/);
+    assert.match(app, /\{ \.\.\.EXAMPLE_PARTNER, example: true, shared: true \}/);
+    assert.match(app, /An example, so you can see how a profile reads/);
+    assert.doesNotMatch(app, /name: "Fynn"/, 'no name is built into the app');
+  });
+
+  it('shares a profile or spoons only when the person says so', () => {
+    const app = appSource();
+    assert.match(app, /onShare: \(\) => \{ publishProfile\(store, selfId, me, Date\.now\(\)\)/);
+    assert.match(app, /if \(shareSpoons\) publishSpoons\(/);
+    assert.match(app, /else unpublishSpoons\(store, selfId\);/);
+  });
+
+  it('lets only an unlocked person add the other person, never from the lock screen', () => {
+    const app = appSource();
+    assert.match(app, /\{!vault\.ephemeral && <WhoUsesThisPhone/);
+    const lockScreen = app.slice(app.indexOf('function UnlockSpace('), app.indexOf('function PrivateSpace('));
+    assert.doesNotMatch(lockScreen, /onAddPerson|Add the other person/);
+  });
+
+  it('asks who is opening it, by name, when two people use the phone', () => {
+    const app = appSource();
+    assert.match(app, /Who's opening dYverge\?/);
+    assert.match(app, /named \? `Welcome back, /);
+  });
+
+  it('describes the other person to the AI only by what they ticked', () => {
+    const app = appSource();
+    assert.match(app, /\$\{describePerson\(partner, true\)\}/);
+    assert.match(app, /\$\{describePerson\(me\)\}/);
+    assert.match(app, /if \(other\) \{\s*return \[\s*`How they say they receive messages/);
+    assert.doesNotMatch(app, /Use their own words about themselves/);
+  });
+
+  it('tells people before the microphone starts, once, and says what leaves the phone', () => {
+    const app = appSource();
+    assert.match(app, /if \(!voiceSeen\) \{ setVoiceSheet\(true\); return; \}/);
+    assert.match(app, /Before you use voice/);
+    assert.match(app, /your audio goes to your browser's speech service/);
+    assert.match(app, /fonts load from Google when it opens/);
+    assert.doesNotMatch(app, /Only the Compass translation\. It goes to/);
   });
 
   it('keeps the old default tool list across two families as a fallback', () => {

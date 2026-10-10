@@ -71,7 +71,16 @@ npm run smoke         # build and drive the real app in headless Chromium, with 
 Edit `src/pathways.ts`, never the generated block. The tests read the app file itself
 (tool ids, Vibe profiles, families), so a change in the app that breaks the rule fails here.
 
-Three generated blocks are inlined: `vault`, `gates` and `pathways`.
+The smoke run gives each scenario its own browser with an on-disk profile, the way a phone keeps
+its storage. **A known oddity:** under heavy load, headless Chromium has rarely handed a reloaded
+page an empty `localStorage`, straight after a page that held data. The run logs every `clear` and
+`removeItem` the page makes, so a failure like that is checkable: if the page removed nothing, it
+says so and repeats that one test once (the final line then says how many were repeated). Any
+other failure, or a second loss, stops the run at once with the page's storage notes printed. The cause is not understood (a bare page never did it; see
+finding A19 in `docs/dyverge/internal-prechecks.md`). To check that a test fails when it should,
+break a copy of the app and run `DYVERGE_APP_FILE=/path/to/copy.jsx npm run smoke`.
+
+Four generated blocks are inlined: `vault`, `people`, `gates` and `pathways`.
 
 Switches in the app, both enforced by tests:
 
@@ -88,6 +97,7 @@ Switches in the app, both enforced by tests:
 | `matcher.ts` | Communication tools from each person's own lenses and words, each with its reason. |
 | `gates.ts` | Safety gates in English plus nine draft languages, run on every text. A hard hit always stops. Languages with no gates are declined. `assessText(text, { allowDrafts })`. |
 | `vault.ts` | Per-person encrypted private spaces. `classifyKey` decides what is private, shared or open (default-deny). `createVault`, `openVault`, `ephemeralVault`, `migrateLegacy`. |
+| `people.ts` | Who is on the phone (two at most), and what crosses between them: names, a published profile and spoon level (allow-listed fields only), and the agreement with one signature each. |
 | `pathways.ts` | The plural-pathways rule: at least 3 kinds of help, at least 2 regulation families, always a person, always a way to say none fit. |
 | `session.ts` | Observations stop after a hard or power gate. Summaries need both people. Delete your own words alone. |
 | `proposals.ts` | Observation to proposal after 3 sessions. Pruning after 180 days. |

@@ -55,15 +55,20 @@ export function browserStore(): KeyValueStore {
 
 export type KeyClass = 'private' | 'shared' | 'open';
 
-/** Plain, because the lock screen has to follow them too. Nothing sensitive. */
-const OPEN_KEYS = new Set(['settings']);
+/**
+ * Plain, because the lock screen has to follow them too: display settings, and the list of
+ * names the lock screen asks "who's opening this?" with.
+ */
+const OPEN_KEYS = new Set(['settings', 'people']);
 /** Communication both people see: Our words, and the agreement with both signatures. */
 const SHARED_KEYS = new Set(['words', 'agreement']);
+/** What a person has chosen to publish for the other: `published:<id>`, `published-spoons:<id>`. */
+const SHARED_PREFIX = 'published';
 
 /** Default-deny: any key not named as open or shared is private. */
 export function classifyKey(key: string): KeyClass {
   if (OPEN_KEYS.has(key)) return 'open';
-  if (SHARED_KEYS.has(key)) return 'shared';
+  if (SHARED_KEYS.has(key) || key.startsWith(SHARED_PREFIX)) return 'shared';
   return 'private';
 }
 
