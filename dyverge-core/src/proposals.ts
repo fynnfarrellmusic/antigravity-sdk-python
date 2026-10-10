@@ -60,6 +60,23 @@ export function proposalsFromObservations(
   return out;
 }
 
+/**
+ * Data minimisation: observations nobody has acted on are dropped after `maxAgeDays`
+ * (default 180, for the reviewers to confirm). Observations behind a pending proposal
+ * are kept until the owner decides.
+ */
+export function pruneStaleObservations(
+  observations: readonly Observation[],
+  proposals: readonly ProfileProposal[],
+  nowIso: string,
+  maxAgeDays = 180,
+): Observation[] {
+  const cutoff = Date.parse(nowIso) - maxAgeDays * 86_400_000;
+  if (Number.isNaN(cutoff)) throw new RangeError(`invalid date: ${nowIso}`);
+  const held = new Set(proposals.filter((p) => p.state === 'pending').flatMap((p) => p.observationIds));
+  return observations.filter((o) => held.has(o.id) || Date.parse(o.lastSeen) >= cutoff);
+}
+
 /** Records the owner's decision. Declined and unsure remember how much evidence existed. */
 export function decide(
   proposal: ProfileProposal,

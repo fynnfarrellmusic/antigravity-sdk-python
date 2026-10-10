@@ -1,5 +1,7 @@
 # dYverge: legal review pack
 
+> **Attached:** `internal-prechecks.md` (Part 1). A first-pass compliance check by Claude, not a lawyer. Please confirm or overturn each requirement and risk, especially L1 to L5.
+
 For a solicitor with UK and EU data protection and health-software experience, and
 ideally US state coverage. Questions, not conclusions. Where I mention a law I am
 listing it for the reviewer to confirm, not advising on it.

@@ -9,6 +9,7 @@ import {
   lintCopy,
   matchTools,
   nameRuleOk,
+  pruneStaleObservations,
   observationsAllowed,
   proposalsFromObservations,
   sessionMustStop,
@@ -80,13 +81,27 @@ describe('matchTools', () => {
     const listener = profile({
       personId: 'b',
       name: 'Bo',
-      neurotypes: ['pda'],
-      receive: { ...b.receive, needsReasonWithAsk: true, literalFirst: true },
+      receive: { ...b.receive, needsReasonWithAsk: true, literalFirst: true, lowDemand: true },
     });
     const [ra] = matchTools({ speaker: a, listener, zones: { a: 'steady', b: 'steady' } });
     const ids = ra.tools.map((t) => t.toolId);
     assert.ok(ids.includes('say-how-it-is'));
     assert.ok(ids.includes('reason-with-ask'));
+  });
+
+  it('never reads a neurotype the owner has not shared', () => {
+    const hidden = profile({ personId: 'b', name: 'Bo', neurotypes: ['pda'], shareNeurotypes: false });
+    const shared = profile({ personId: 'b', name: 'Bo', neurotypes: ['pda'], shareNeurotypes: true });
+    const ids = (l: typeof hidden) =>
+      matchTools({ speaker: a, listener: l, zones: {} })[0].tools.map((t) => t.toolId);
+    assert.ok(!ids(hidden).includes('say-how-it-is'));
+    assert.ok(ids(shared).includes('say-how-it-is'));
+  });
+
+  it('never tells someone they said something they did not', () => {
+    const adhd = profile({ personId: 'a', neurotypes: ['adhd'] });
+    const [ra] = matchTools({ speaker: adhd, listener: b, zones: { a: 'steady', b: 'steady' } });
+    for (const t of ra.tools) for (const why of t.because) assert.ok(!/you said/i.test(why), why);
   });
 
   it('flags a love-language mismatch and stays quiet on a match', () => {

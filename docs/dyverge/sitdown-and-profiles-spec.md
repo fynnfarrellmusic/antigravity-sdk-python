@@ -268,3 +268,19 @@ Framework-free TypeScript, no runtime dependencies, 24 tests passing.
 
 Not built: UI, storage, the gate runner (it belongs to the Compass), the
 Anthropic call, voice notes. These need the React app's code.
+
+## 12. Restricted modules and the internal pre-review (11 Oct 2026)
+
+Until clinical and legal review sign off, the sit-down facilitator, observation
+drafting, profile proposals and screening are **restricted**: off by default, never
+on in production builds, and on only in an internal-test build with a tester
+passcode. See `dyverge-core/README.md`. This is a gate for safe testing, not a
+substitute for review, and not real security on its own.
+
+An internal pre-review is in `internal-prechecks.md`. It added three things to the
+design, all now in `dyverge-core/`: neurotypes are private unless shared; support
+routes are checked per locale before a joint session; observations expire after
+180 days unless a proposal rests on them. It also found one gap that is **not yet
+built and blocks real use**: because the app is local-first on one shared device,
+the two people can read each other's private data. It needs a per-person encrypted
+vault (internal-prechecks L1).

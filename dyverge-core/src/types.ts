@@ -50,7 +50,11 @@ export interface CommunicationProfile {
   locale: string;
   languages: string[];
   neurotypes: Neurotype[];
+  /** Neurotypes are private unless the owner says otherwise. Explicit, never defaulted by the app. */
+  shareNeurotypes: boolean;
   receive: {
+    /** Self-chosen: requests phrased as orders cost more to answer than statements. */
+    lowDemand: boolean;
     directness: Directness;
     contextStyle: ContextStyle;
     channel: Channel;

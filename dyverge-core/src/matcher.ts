@@ -112,8 +112,10 @@ export const TOOLS: readonly Tool[] = [
     fits: (self, _o, role) => {
       const why: string[] = [];
       if (role === 'listener') why.push('Tapping costs less than writing when you are running low.');
+      // Reads only the person's own profile. The reason states a general fact; it
+      // never claims the person said something they did not.
       if (self.neurotypes.some((n) => n === 'adhd' || n === 'audhd' || n === 'autistic')) {
-        why.push('You said replies are easier when the options are laid out.');
+        why.push('Options laid out are quicker to take in than an empty box.');
       }
       return why;
     },
@@ -181,9 +183,11 @@ export const TOOLS: readonly Tool[] = [
     cost: 'low',
     regulation: false,
     offline: true,
+    // Fires on the listener's explicit low-demand setting, or on a shared neurotype.
+    // A neurotype the owner has not shared is never read for the other person's tools.
     fits: (self, other, role) =>
-      role === 'speaker' && other.neurotypes.includes('pda')
-        ? [`${other.name} told us requests that sound like orders cost a lot to answer.`]
+      role === 'speaker' && (other.receive.lowDemand || (other.shareNeurotypes && other.neurotypes.includes('pda')))
+        ? [`Requests that sound like orders can cost ${other.name} a lot to answer. A statement of how things are leaves room to choose.`]
         : [],
   },
   {

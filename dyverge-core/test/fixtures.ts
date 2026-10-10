@@ -7,7 +7,9 @@ export function profile(over: Partial<CommunicationProfile> = {}): Communication
     locale: 'en-GB',
     languages: ['en'],
     neurotypes: [],
+    shareNeurotypes: false,
     receive: {
+      lowDemand: false,
       directness: 'depends',
       contextStyle: 'depends',
       channel: 'either',

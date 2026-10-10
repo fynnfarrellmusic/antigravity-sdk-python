@@ -1,5 +1,7 @@
 # dYverge: clinical review pack
 
+> **Attached:** `internal-prechecks.md` (Part 2). A first-pass review by Claude, not a clinician. Please confirm or overturn each finding, especially C1, C2, and the evidence table (Polyvagal Theory and love languages in particular).
+
 For a clinician experienced in couples work, neurodivergence and trauma.
 Purpose: sign-off, or changes, on the sit-down and profile module before any
 real couple uses it. Nothing here has been reviewed. Source: `sitdown-and-profiles-spec.md`.
