@@ -71,7 +71,14 @@ npm run smoke         # build and drive the real app in headless Chromium, with 
 Edit `src/pathways.ts`, never the generated block. The tests read the app file itself
 (tool ids, Vibe profiles, families), so a change in the app that breaks the rule fails here.
 
-`PATHWAYS_PROFESSIONAL` in the app ships `false` and a test enforces it.
+Three generated blocks are inlined: `vault`, `gates` and `pathways`.
+
+Switches in the app, both enforced by tests:
+
+| Switch | Ships as | Meaning |
+|---|---|---|
+| `PATHWAYS_PROFESSIONAL` | `false` | Kinds of professional help are hidden until clinical and legal review. |
+| `GATE_DRAFT_LANGUAGES` | `true` | The nine draft gate languages are used, with a notice. `false` declines everything but English. |
 
 ## Other modules
 
@@ -79,6 +86,8 @@ Edit `src/pathways.ts`, never the generated block. The tests read the app file i
 |---|---|
 | `capacity.ts` | Battery to zone. No sit-down while either person is flooded. |
 | `matcher.ts` | Communication tools from each person's own lenses and words, each with its reason. |
+| `gates.ts` | Safety gates in English plus nine draft languages, run on every text. A hard hit always stops. Languages with no gates are declined. `assessText(text, { allowDrafts })`. |
+| `vault.ts` | Per-person encrypted private spaces. `classifyKey` decides what is private, shared or open (default-deny). `createVault`, `openVault`, `ephemeralVault`, `migrateLegacy`. |
 | `pathways.ts` | The plural-pathways rule: at least 3 kinds of help, at least 2 regulation families, always a person, always a way to say none fit. |
 | `session.ts` | Observations stop after a hard or power gate. Summaries need both people. Delete your own words alone. |
 | `proposals.ts` | Observation to proposal after 3 sessions. Pruning after 180 days. |

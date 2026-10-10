@@ -15,6 +15,11 @@
 // dYverge is not therapy, not a crisis service, and not a substitute for
 // support in an unsafe relationship.
 //
+// Private data is locked per person. Your profile, readings, check-ins, spoons and history
+// are encrypted on this phone under a passphrase only you know, so the other person can't
+// read them even with the phone in their hand. Only shared communication (Our words and the
+// agreement) and display settings are stored in the open. See "vault" below.
+//
 // Anything here that offers help offers more than one KIND of help, and always a
 // way to say none of it fits. Never one approach. See "pathways" below.
 
@@ -22,7 +27,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Home, Compass, Zap, Users, ArrowLeft, Copy, Check, Mic, Send, Moon, Settings,
   Phone, MessageCircle, Clock, Plus, Minus, VolumeX, Wind, Heart, Edit3,
-  Feather, Music, Square, Bookmark, Sliders, Anchor, X,
+  Feather, Music, Square, Bookmark, Sliders, Anchor, X, Lock,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -105,14 +110,380 @@ function save(key, value) {
 }
 function clearAll() {
   try {
-    Object.keys(window.localStorage).filter((k) => k.startsWith(NS)).forEach((k) => window.localStorage.removeItem(k));
+    // The vault and its passphrase are not plain data: clearing everything empties it (vault.clear()) but keeps it.
+    Object.keys(window.localStorage).filter((k) => k.startsWith(NS) && !k.startsWith(`${NS}vault:`)).forEach((k) => window.localStorage.removeItem(k));
   } catch (e) { /* storage unavailable */ }
 }
+// The unlocked vault of whoever is using the app. Private keys live in it, encrypted.
+// classifyKey() decides: anything not named shared or open is private (default-deny).
+const VaultContext = React.createContext(null);
+
 function usePersist(key, initial) {
-  const [value, setValue] = useState(() => load(key, typeof initial === "function" ? initial() : initial));
-  useEffect(() => { save(key, value); }, [key, value]);
+  const vault = React.useContext(VaultContext);
+  const priv = classifyKey(key) === "private" && vault;
+  const [value, setValue] = useState(() => {
+    const start = typeof initial === "function" ? initial() : initial;
+    return priv ? vault.get(key, start) : load(key, start);
+  });
+  useEffect(() => {
+    if (priv) vault.put(key, value).catch(() => { /* storage full or blocked: keep working in memory */ });
+    else save(key, value);
+  }, [key, value]);
   return [value, setValue];
 }
+
+// ── vault:begin (generated from dyverge-core/src/vault.ts by scripts/build-app.ts. Edit that file, not this block.) ──
+// Per-person private vaults. Only shared communication crosses over.
+//
+// SELF-CONTAINED on purpose (no imports): scripts/build-app.ts strips the types and inlines
+// this file into dyverge-app.jsx, so the tests here cover the code the app runs.
+//
+// The model:
+//   - Each person has a vault, encrypted at rest with a key derived from a passphrase only
+//     they know (PBKDF2-SHA256 into AES-GCM-256). The other person cannot read it, even on
+//     the same phone, because the passphrase is the only way in.
+//   - Every entry is bound to its owner and key (AES-GCM additional data), so entries cannot
+//     be swapped between people or between keys without detection.
+//   - Everything an app stores is classed private, shared or open by classifyKey(). Anything
+//     not listed is PRIVATE: a new kind of data is locked until someone decides otherwise.
+//   - "Use without saving" is an ephemeral vault: it keeps nothing on disk at all.
+//
+// Honest limits: this keeps out someone who picks up the phone. A short passphrase would not
+// stop an expert with the phone and time (the data is on the device, so it can be attacked
+// offline); a longer one is better. Nothing here can recover a forgotten passphrase.
+
+function memoryStore(){
+  const m = new Map                ();
+  return {
+    get: (k) => (m.has(k) ? m.get(k): null),
+    set: (k, v) => void m.set(k, v),
+    remove: (k) => void m.delete(k),
+    keys: () => [...m.keys()],
+  };
+}
+
+/** localStorage, or memory if storage is blocked (a private window), so the app still works. */
+function browserStore(){
+  try {
+    const ls = globalThis.localStorage;
+    ls.setItem('__dyverge_probe', '1');
+    ls.removeItem('__dyverge_probe');
+    return {
+      get: (k) => ls.getItem(k),
+      set: (k, v) => ls.setItem(k, v),
+      remove: (k) => ls.removeItem(k),
+      keys: () => Object.keys(ls),
+    };
+  } catch (e) {
+    return memoryStore();
+  }
+}
+
+// ── Classing: what is private, shared, or open ───────────────────────────────────────────────
+
+/** Plain, because the lock screen has to follow them too. Nothing sensitive. */
+const OPEN_KEYS = new Set(['settings']);
+/** Communication both people see: Our words, and the agreement with both signatures. */
+const SHARED_KEYS = new Set(['words', 'agreement']);
+
+/** Default-deny: any key not named as open or shared is private. */
+function classifyKey(key){
+  if (OPEN_KEYS.has(key)) return 'open';
+  if (SHARED_KEYS.has(key)) return 'shared';
+  return 'private';
+}
+
+/** What older builds saved in plain text, and which now belongs in the vault. */
+const LEGACY_PRIVATE_KEYS = [
+  'profiles',
+  'spoons',
+  'translations',
+  'parks',
+  'checkins',
+  'needSpace',
+  'vibe',
+  'toolLog',
+];
+
+// ── Crypto ───────────────────────────────────────────────────────────────────────────────────
+
+const MIN_PASSPHRASE = 6;
+const ITERATIONS = 210_000;
+const CHECK = 'dyverge-vault-ok';
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+
+function toB64(bytes){
+  let s = '';
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s);
+}
+
+function fromB64(b64){
+  const s = atob(b64);
+  const out = new Uint8Array(s.length);
+  for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
+  return out;
+}
+
+async function deriveKey(passphrase, salt, iterations){
+  const subtle = globalThis.crypto.subtle;
+  // NFKC so the same typed characters from different keyboards give the same key.
+  const base = await subtle.importKey('raw', enc.encode(passphrase.normalize('NFKC')), 'PBKDF2', false, ['deriveKey']);
+  return subtle.deriveKey(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: salt, iterations },
+    base,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+async function seal(key, aad, plaintext){
+  const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
+  const ct = await globalThis.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv, additionalData: enc.encode(aad)                 },
+    key,
+    enc.encode(plaintext),
+  );
+  return { iv: toB64(iv), ct: toB64(new Uint8Array(ct)) };
+}
+
+async function unseal(key, aad, sealed){
+  try {
+    const buf = await globalThis.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: fromB64(sealed.iv), additionalData: enc.encode(aad)                 },
+      key,
+      fromB64(sealed.ct),
+    );
+    return dec.decode(buf);
+  } catch (e) {
+    return null;
+  }
+}
+
+// ── The vault ────────────────────────────────────────────────────────────────────────────────
+
+const prefix = (personId) => `dyverge:vault:${personId}:`;
+const headerKey = (personId) => `${prefix(personId)}__header`;
+const entryPrefix = (personId) => `${prefix(personId)}k:`;
+const entryAad = (personId, key) => `${personId}/${key}`;
+const headerAad = (personId) => `${personId}/__header`;
+
+function vaultExists(store, personId){
+  return store.get(headerKey(personId)) !== null;
+}
+
+function readHeader(store, personId){
+  const raw = store.get(headerKey(personId));
+  if (raw === null) return null;
+  try {
+    const h = JSON.parse(raw);
+    return h && h.v === 1 && h.salt && h.iterations && h.check ? h : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** Opens an existing vault, locked. Use unlock() with the passphrase. */
+function openVault(store, personId){
+  return makeVault(store, personId, null);
+}
+
+/** Makes a new vault and returns it unlocked. Throws if one already exists. */
+export async function createVault(
+  store,
+  personId,
+  passphrase,
+  opts = {},
+){
+  if (vaultExists(store, personId)) throw new Error('A private space already exists for this person.');
+  if (passphrase.length < MIN_PASSPHRASE) throw new RangeError(`Passphrase needs at least ${MIN_PASSPHRASE} characters.`);
+  const iterations = opts.iterations ?? ITERATIONS;
+  const salt = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(passphrase, salt, iterations);
+  const header = { v: 1, salt: toB64(salt), iterations, check: await seal(key, headerAad(personId), CHECK) };
+  store.set(headerKey(personId), JSON.stringify(header));
+  const vault = makeVault(store, personId, { key, data: new Map() });
+  return vault;
+}
+
+function makeVault(store, personId, initial){
+  let state = initial;
+  let queue = Promise.resolve();
+  let bad = [];
+
+  const enqueue = (fn) => {
+    const run = queue.then(fn);
+    queue = run.catch(() => undefined);
+    return run;
+  };
+  const need = () => {
+    if (!state) throw new Error('The private space is locked.');
+    return state;
+  };
+  const entryKeys = () => store.keys().filter((k) => k.startsWith(entryPrefix(personId)));
+
+  return {
+    personId,
+    ephemeral: false,
+
+    isUnlocked: () => state !== null,
+
+    async unlock(passphrase) {
+      const header = readHeader(store, personId);
+      if (!header) return false;
+      const key = await deriveKey(passphrase, fromB64(header.salt), header.iterations);
+      if ((await unseal(key, headerAad(personId), header.check)) !== CHECK) return false;
+      const data = new Map                ();
+      bad = [];
+      for (const storeKey of entryKeys()) {
+        const id = storeKey.slice(entryPrefix(personId).length);
+        let sealed = null;
+        try {
+          sealed = JSON.parse(store.get(storeKey) ?? 'null');
+        } catch (e) {
+          sealed = null;
+        }
+        const plain = sealed ? await unseal(key, entryAad(personId, id), sealed) : null;
+        if (plain === null) bad.push(id);
+        else data.set(id, plain);
+      }
+      state = { key, data };
+      return true;
+    },
+
+    async lock() {
+      await queue;
+      state = null;
+    },
+
+    get   (key, fallback){
+      const raw = need().data.get(key);
+      return raw === undefined ? fallback : (JSON.parse(raw));
+    },
+
+    put(key, value) {
+      const s = need();
+      const json = JSON.stringify(value);
+      s.data.set(key, json);
+      return enqueue(async () => {
+        if (!state) return;
+        const sealed = await seal(state.key, entryAad(personId, key), json);
+        store.set(entryPrefix(personId) + key, JSON.stringify(sealed));
+      });
+    },
+
+    remove(key) {
+      need().data.delete(key);
+      return enqueue(() => store.remove(entryPrefix(personId) + key));
+    },
+
+    clear() {
+      need().data.clear();
+      return enqueue(() => {
+        for (const k of entryKeys()) store.remove(k);
+      });
+    },
+
+    async changePassphrase(current, next) {
+      if (next.length < MIN_PASSPHRASE) throw new RangeError(`Passphrase needs at least ${MIN_PASSPHRASE} characters.`);
+      const s = need();
+      const header = readHeader(store, personId);
+      if (!header) return false;
+      const proof = await deriveKey(current, fromB64(header.salt), header.iterations);
+      if ((await unseal(proof, headerAad(personId), header.check)) !== CHECK) return false;
+      await queue;
+      const salt = globalThis.crypto.getRandomValues(new Uint8Array(16));
+      const key = await deriveKey(next, salt, header.iterations);
+      // Seal everything first, then write: no half-changed state if sealing fails.
+      const sealedEntries = [];
+      for (const [id, json] of s.data) {
+        sealedEntries.push([entryPrefix(personId) + id, JSON.stringify(await seal(key, entryAad(personId, id), json))]);
+      }
+      const newHeader = { v: 1, salt: toB64(salt), iterations: header.iterations, check: await seal(key, headerAad(personId), CHECK) };
+      for (const [k, v] of sealedEntries) store.set(k, v);
+      store.set(headerKey(personId), JSON.stringify(newHeader));
+      s.key = key;
+      return true;
+    },
+
+    erase() {
+      for (const k of store.keys()) if (k.startsWith(prefix(personId))) store.remove(k);
+      state = null;
+    },
+
+    unreadable: () => [...bad],
+  };
+}
+
+/** "Use without saving": same interface, nothing ever written to disk. */
+function ephemeralVault(personId){
+  let data = new Map();
+  const need = () => {
+    if (!data) throw new Error('This session has ended.');
+    return data;
+  };
+  return {
+    personId,
+    ephemeral: true,
+    isUnlocked: () => data !== null,
+    unlock: () => Promise.resolve(false),
+    lock: () => {
+      data = null;
+      return Promise.resolve();
+    },
+    get   (key, fallback){
+      const raw = need().get(key);
+      return raw === undefined ? fallback : (JSON.parse(raw));
+    },
+    put(key, value) {
+      need().set(key, JSON.stringify(value));
+      return Promise.resolve();
+    },
+    remove(key) {
+      need().delete(key);
+      return Promise.resolve();
+    },
+    clear() {
+      need().clear();
+      return Promise.resolve();
+    },
+    changePassphrase: () => Promise.resolve(false),
+    erase() {
+      data = null;
+    },
+    unreadable: () => [],
+  };
+}
+
+/**
+ * Moves what an older build saved in plain text into the vault, then deletes the plain copy.
+ * The plain copy is only removed once the encrypted one is saved. Returns the keys moved.
+ */
+export async function migrateLegacy(store, vault, namespace = 'dyverge:'){
+  const moved = [];
+  for (const key of LEGACY_PRIVATE_KEYS) {
+    const raw = store.get(namespace + key);
+    if (raw === null) continue;
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      continue;
+    }
+    await vault.put(key, parsed);
+    store.remove(namespace + key);
+    moved.push(key);
+  }
+  return moved;
+}
+
+/** Whether older plain-text private data exists, so the app can say it will be moved. */
+function hasLegacyData(store, namespace = 'dyverge:'){
+  return LEGACY_PRIVATE_KEYS.some((k) => store.get(namespace + k) !== null);
+}
+// ── vault:end ──
 
 const uid = () => Math.random().toString(36).slice(2, 10);
 function todayKey() {
@@ -288,6 +659,13 @@ const REGULATION = {
 // Restricted until clinical and legal review. Leave false. Set true only in an
 // internal test build, with made-up details. See dyverge-core/README.md.
 const PATHWAYS_PROFESSIONAL = false;
+
+// Safety gates in Spanish, French, German, Portuguese, Italian, Polish, Russian, Arabic and
+// Hindi are drafts: written without native-speaker or clinical review. While true, those
+// languages are checked (with a notice that the checks are new). Set false to decline
+// everything except English until they have been reviewed. A hard phrase stops in any
+// language either way.
+const GATE_DRAFT_LANGUAGES = true;
 
 // ── pathways:begin (generated from dyverge-core/src/pathways.ts by scripts/build-app.ts. Edit that file, not this block.) ──
 // Plural pathways: the app never offers one approach as the answer.
@@ -1247,9 +1625,10 @@ function checkCoverage(text){
  * What to do with a text. A hard hit always stops. Text the app cannot check is declined,
  * never passed through as if it had been checked.
  */
-function assessText(text){
+function assessText(text, opts = {}){
   const gate = runGates(text);
-  const coverage = checkCoverage(text);
+  let coverage = checkCoverage(text);
+  if (coverage.status === 'draft' && opts.allowDrafts === false) coverage = { ...coverage, status: 'unsupported' };
   let action = 'ok';
   if (gate === 'hard') action = 'stop';
   else if (coverage.status === 'unsupported') action = 'decline';
@@ -1955,7 +2334,7 @@ function Sanctuary({ vibe, history, onOutcome, lessMotion, onLetIn, onNeedSpace,
 // 7.3 Home: a calm editorial page
 // ─────────────────────────────────────────────────────────────────────────────
 
-function HomeScreen({ name, zone, spoons, partner, agreement, translations, parks, onCompass, onOpenRecord, onResumePark, onClosePark, onAgreement, onSettings, onSpoons }) {
+function HomeScreen({ name, zone, spoons, partner, agreement, translations, parks, onCompass, onOpenRecord, onResumePark, onClosePark, onAgreement, onSettings, onSpoons, onLock, ephemeral }) {
   const [showRecent, setShowRecent] = useState(false);
   const short = zone !== "steady";
   const now = new Date();
@@ -1974,9 +2353,14 @@ function HomeScreen({ name, zone, spoons, partner, agreement, translations, park
           <p style={{ ...T.caption, color: C.soft }}>{now.toLocaleDateString("en-GB", { weekday: "long" })}</p>
           <h1 style={{ ...T.title, color: C.ink, marginTop: 4 }}>{greeting}, {name || "there"}</h1>
         </div>
-        <button onClick={onSettings} aria-label="Settings" style={{ width: 48, height: 48, marginRight: -12, background: "none", border: "none", color: C.soft, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <Settings size={22} aria-hidden="true" />
-        </button>
+        <div style={{ display: "flex", marginRight: -12 }}>
+          <button onClick={onLock} aria-label={ephemeral ? "End this session" : "Lock your private space"} style={{ width: 48, height: 48, background: "none", border: "none", color: C.soft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Lock size={22} aria-hidden="true" />
+          </button>
+          <button onClick={onSettings} aria-label="Settings" style={{ width: 48, height: 48, background: "none", border: "none", color: C.soft, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Settings size={22} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <button onClick={onSpoons} style={{ width: "100%", textAlign: "left", border: "none", marginTop: 24, background: C.sunk, borderRadius: 20, padding: 20, boxShadow: SHADOW, display: "flex", alignItems: "center", gap: 20 }} aria-label={`Spoons: ${left} of ${spoons.total} left. ${partner.name}: ${PARTNER_SPOONS.left} of ${PARTNER_SPOONS.total}.`}>
@@ -2337,14 +2721,14 @@ function CompassFlow({ zone, profiles, words, seed, onSave, onPark, onExit, onSt
   };
 
   const go = () => {
-    const { action } = assessText([text, before].join(" "));
+    const { action } = assessText([text, before].join(" "), { allowDrafts: GATE_DRAFT_LANGUAGES });
     if (action === "stop") { onStop(); return; }
     if (action === "decline") { setStep("language"); return; }
     if (action === "power") { setStep("power"); return; }
     if (action === "soft") { setStep("soft"); return; }
     translate(false);
   };
-  const cover = checkCoverage([text, before].join(" "));
+  const cover = assessText([text, before].join(" "), { allowDrafts: GATE_DRAFT_LANGUAGES }).coverage;
   const coverName = (GATE_LANGUAGES.find((l) => l.code === cover.language) || {}).name;
 
   const parkState = { mode, text, before, duration, energy, urgency, step: ["mode", "message", "context"].includes(step) ? step : "context" };
@@ -2845,7 +3229,7 @@ function SafetyStop({ onBack }) {
   );
 }
 
-function SettingsScreen({ settings, setSettings, name, onName, onSupport, onClear, onBack }) {
+function SettingsScreen({ settings, setSettings, name, onName, onSupport, onClear, onBack, vault, onLock }) {
   const [confirmClear, setConfirmClear] = useState(false);
   return (
     <Page padBottom={48}>
@@ -2863,6 +3247,7 @@ function SettingsScreen({ settings, setSettings, name, onName, onSupport, onClea
       <Card style={{ marginTop: 16 }}>
         <p style={{ ...T.body, color: C.ink }}>dYverge is not therapy, not a crisis service, and not a substitute for support in an unsafe relationship.</p>
       </Card>
+      <PrivateSpace vault={vault} onLock={onLock} />
       <Card style={{ marginTop: 16 }}>
         <h2 style={{ ...T.section, color: C.ink }}>What leaves your phone</h2>
         <p style={{ ...T.body, color: C.ink, marginTop: 8 }}>Only the Compass translation. It goes to Anthropic's AI to write the reading, after the safety checks run here. Everything else stays on this phone.</p>
@@ -2886,10 +3271,202 @@ function SettingsScreen({ settings, setSettings, name, onName, onSupport, onClea
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Private space: make it, open it, lock it. One real person for now (PERSON); the vault
+// layer already holds any number of people, each with their own passphrase.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const PERSON = "me";
+const fieldStyle = { width: "100%", background: C.sunk, border: `1px solid ${C.edge}`, borderRadius: 14, padding: "12px 16px", ...T.body, color: C.ink, minHeight: 48 };
+
+function Field({ id, label, value, onChange, autoFocus }) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <label htmlFor={id} style={{ ...T.label, color: C.ink, display: "block", marginBottom: 8 }}>{label}</label>
+      <input id={id} type="password" autoComplete="off" autoFocus={autoFocus} value={value} onChange={(e) => onChange(e.target.value)} style={fieldStyle} />
+    </div>
+  );
+}
+
+function CreateSpace({ store, onOpen }) {
+  const [pass, setPass] = useState("");
+  const [again, setAgain] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState(null);
+  const legacy = hasLegacyData(store);
+  const matches = pass === again;
+  const ok = pass.length >= MIN_PASSPHRASE && matches && !busy;
+  const make = async (e) => {
+    e.preventDefault();
+    if (!ok) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const v = await createVault(store, PERSON, pass);
+      if (legacy) await migrateLegacy(store, v);
+      onOpen(v);
+    } catch (x) {
+      setErr("That didn't work. Try again, or use it without saving.");
+      setBusy(false);
+    }
+  };
+  return (
+    <Page padBottom={48}>
+      <form onSubmit={make}>
+        <h1 style={{ ...T.title, color: C.ink, marginTop: 24 }}>Make your private space.</h1>
+        <p style={{ ...T.bodyL, color: C.ink, margin: "16px 0 8px" }}>Your profile, readings, check-ins and spoons are locked with a passphrase only you know. The other person can't read them, even on this phone. Only what you choose to share crosses over.</p>
+        {legacy && <p style={{ ...T.body, color: C.soft, marginBottom: 8 }}>There are things saved on this phone from before. They'll move into your private space.</p>}
+        <div style={{ marginTop: 24 }}>
+          <Field id="vs-pass" label="Passphrase" value={pass} onChange={setPass} autoFocus />
+          <Field id="vs-again" label="Type it again" value={again} onChange={setAgain} />
+          <p aria-live="polite" style={{ ...T.caption, color: C.soft, minHeight: 17, marginBottom: 12 }}>
+            {again.length > 0 && !matches ? "These don't match yet." : pass.length > 0 && pass.length < MIN_PASSPHRASE ? `Use at least ${MIN_PASSPHRASE} characters.` : ""}
+          </p>
+        </div>
+        <p style={{ ...T.caption, color: C.soft, marginBottom: 16 }}>Pick something you'll remember. If you forget it, nobody can get your private space back, and you'd have to start again. A short code keeps out someone picking up your phone. It wouldn't stop an expert with your phone and plenty of time, so a longer phrase is safer.</p>
+        {err && <p role="alert" style={{ ...T.body, color: C.ink, marginBottom: 12 }}>{err}</p>}
+        <PrimaryButton disabled={!ok} onClick={make}>Lock my private space</PrimaryButton>
+      </form>
+      <div style={{ textAlign: "center", marginTop: 16 }}>
+        <TextButton colour={C.soft} onClick={() => onOpen(ephemeralVault(PERSON))}>Use without saving</TextButton>
+        <p style={{ ...T.caption, color: C.soft }}>Nothing is kept when you close the app.</p>
+      </div>
+    </Page>
+  );
+}
+
+function UnlockSpace({ store, onOpen, onErased }) {
+  const [vault] = useState(() => openVault(store, PERSON));
+  const [pass, setPass] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [wrong, setWrong] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const tryOpen = async (e) => {
+    e.preventDefault();
+    if (!pass || busy) return;
+    setBusy(true);
+    setWrong(false);
+    const ok = await vault.unlock(pass);
+    if (ok) onOpen(vault);
+    else { setWrong(true); setBusy(false); }
+  };
+  return (
+    <Page padBottom={48}>
+      <h1 style={{ ...T.title, color: C.ink, marginTop: 24 }}>Welcome back.</h1>
+      <p style={{ ...T.bodyL, color: C.ink, margin: "16px 0 24px" }}>Your private space is locked.</p>
+      <form onSubmit={tryOpen}>
+        <Field id="us-pass" label="Passphrase" value={pass} onChange={(v) => { setPass(v); setWrong(false); }} autoFocus />
+        <p role="alert" aria-live="polite" style={{ ...T.body, color: C.ink, minHeight: 24, marginBottom: 12 }}>{wrong ? "That's not it. Try again." : ""}</p>
+        <PrimaryButton disabled={!pass || busy} onClick={tryOpen}>Open</PrimaryButton>
+      </form>
+      <div style={{ textAlign: "center", marginTop: 16 }}>
+        {!forgot && <TextButton colour={C.soft} onClick={() => setForgot(true)}>I've forgotten it</TextButton>}
+      </div>
+      {forgot && (
+        <Card style={{ marginTop: 16 }}>
+          <h2 style={{ ...T.section, color: C.ink }}>If you've forgotten it</h2>
+          <p style={{ ...T.body, color: C.ink, marginTop: 8 }}>Nobody can get your private space back without the passphrase, not even us. You can erase it and start again. Your profile, readings, check-ins and spoons would be removed from this phone. Our words and your agreement would stay.</p>
+          {confirm ? (
+            <div style={{ marginTop: 12 }}>
+              <p style={{ ...T.body, color: C.ink }}>This can't be undone.</p>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <SecondaryButton onClick={() => { vault.erase(); onErased(); }}>Yes, erase it</SecondaryButton>
+                <TextButton colour={C.soft} onClick={() => { setConfirm(false); setForgot(false); }}>Keep it</TextButton>
+              </div>
+            </div>
+          ) : (
+            <div style={{ marginTop: 12 }}><SecondaryButton onClick={() => setConfirm(true)}>Erase my private space</SecondaryButton></div>
+          )}
+        </Card>
+      )}
+    </Page>
+  );
+}
+
+function PrivateSpace({ vault, onLock }) {
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState("");
+  const [next, setNext] = useState("");
+  const [again, setAgain] = useState("");
+  const [msg, setMsg] = useState(null);
+  const change = async () => {
+    try {
+      const ok = await vault.changePassphrase(cur, next);
+      setMsg(ok ? "Passphrase changed." : "That's not your current passphrase.");
+      if (ok) { setOpen(false); setCur(""); setNext(""); setAgain(""); }
+    } catch (x) {
+      setMsg(`Use at least ${MIN_PASSPHRASE} characters.`);
+    }
+  };
+  return (
+    <Card style={{ marginTop: 16 }}>
+      <h2 style={{ ...T.section, color: C.ink }}>Your private space</h2>
+      {vault.ephemeral ? (
+        <p style={{ ...T.body, color: C.ink, marginTop: 8 }}>Nothing is being saved. When you close the app, it's all gone. Close and reopen it to make a private space.</p>
+      ) : (
+        <p style={{ ...T.body, color: C.ink, marginTop: 8 }}>Your profile, readings, check-ins and spoons are locked with your passphrase. The other person can't read them, even on this phone. Only what you choose to share crosses over. Lock it before you hand the phone over.</p>
+      )}
+      <div style={{ marginTop: 12 }}>
+        <SecondaryButton icon={Lock} onClick={onLock}>{vault.ephemeral ? "End this session" : "Lock now"}</SecondaryButton>
+      </div>
+      {!vault.ephemeral && (open ? (
+        <div style={{ marginTop: 16 }}>
+          <Field id="cp-cur" label="Current passphrase" value={cur} onChange={setCur} />
+          <Field id="cp-new" label="New passphrase" value={next} onChange={setNext} />
+          <Field id="cp-again" label="New passphrase, again" value={again} onChange={setAgain} />
+          <div style={{ display: "flex", gap: 8 }}>
+            <SecondaryButton onClick={change} style={next.length >= MIN_PASSPHRASE && next === again && cur ? undefined : { opacity: 0.5, pointerEvents: "none" }}>Change it</SecondaryButton>
+            <TextButton colour={C.soft} onClick={() => setOpen(false)}>Cancel</TextButton>
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: 4 }}><TextButton onClick={() => { setMsg(null); setOpen(true); }}>Change passphrase</TextButton></div>
+      ))}
+      <p aria-live="polite" style={{ ...T.caption, color: C.soft, marginTop: 8, minHeight: 17 }}>{msg}</p>
+    </Card>
+  );
+}
+
+// Everything private is behind this. It shows the right screen, and only renders the app
+// once a vault is open, so nothing private is ever read before the passphrase is given.
+function VaultGate({ children }) {
+  useFonts();
+  const [store] = useState(() => browserStore());
+  const [phase, setPhase] = useState(() => (vaultExists(store, PERSON) ? "locked" : "create"));
+  const [vault, setVault] = useState(null);
+  const settings = load("settings", { readingSupport: false });
+
+  const open = (v) => { setVault(v); setPhase("open"); };
+  const lock = async () => {
+    const ended = vault && vault.ephemeral;
+    if (vault) await vault.lock();
+    setVault(null);
+    setPhase(ended ? "create" : "locked");
+  };
+
+  let body;
+  if (phase === "open" && vault) {
+    return <VaultContext.Provider value={vault}>{children({ vault, onLock: lock })}</VaultContext.Provider>;
+  }
+  if (phase === "locked") body = <UnlockSpace store={store} onOpen={open} onErased={() => setPhase("create")} />;
+  else body = <CreateSpace store={store} onOpen={open} />;
+  return (
+    <div className="dy" style={{ ...(settings.readingSupport ? READING_VARS : TYPE_VARS), minHeight: "100vh", background: C.paper, color: C.ink }}>
+      <style>{CSS}</style>
+      {body}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // App
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function App() {
+  return <VaultGate>{({ vault, onLock }) => <AppInner vault={vault} onLock={onLock} />}</VaultGate>;
+}
+
+function AppInner({ vault, onLock }) {
   useFonts();
   const [settings, setSettings] = usePersist("settings", { readingSupport: false, lessMotion: false });
   const [profiles, setProfiles] = usePersist("profiles", DEFAULT_PROFILES);
@@ -2975,6 +3552,8 @@ export default function App() {
         onAgreement={openAgreement}
         onSettings={() => setScreen("settings")}
         onSpoons={() => setScreen("spoons")}
+        onLock={onLock}
+        ephemeral={vault.ephemeral}
       />
     );
   } else if (screen === "compass") {
@@ -3028,8 +3607,11 @@ export default function App() {
         onName={(n) => setProfiles((p) => ({ ...p, me: { ...p.me, name: n } }))}
         onSupport={() => setSupport("crisis")}
         onBack={() => setScreen("home")}
+        vault={vault}
+        onLock={onLock}
         onClear={() => {
           clearAll();
+          vault.clear().catch(() => {});
           setSettings({ readingSupport: false, lessMotion: false });
           setProfiles(DEFAULT_PROFILES);
           setWords(DEFAULT_WORDS);

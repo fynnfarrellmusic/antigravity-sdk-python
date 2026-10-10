@@ -667,13 +667,22 @@ export function checkCoverage(text: string): Coverage {
   }
 }
 
+export interface AssessOptions {
+  /**
+   * Whether draft languages are used. Set false to treat them as unsupported (declined) until
+   * they have been reviewed. A hard phrase still stops in every language either way.
+   */
+  allowDrafts?: boolean;
+}
+
 /**
  * What to do with a text. A hard hit always stops. Text the app cannot check is declined,
  * never passed through as if it had been checked.
  */
-export function assessText(text: string): Assessment {
+export function assessText(text: string, opts: AssessOptions = {}): Assessment {
   const gate = runGates(text);
-  const coverage = checkCoverage(text);
+  let coverage = checkCoverage(text);
+  if (coverage.status === 'draft' && opts.allowDrafts === false) coverage = { ...coverage, status: 'unsupported' };
   let action: Action = 'ok';
   if (gate === 'hard') action = 'stop';
   else if (coverage.status === 'unsupported') action = 'decline';

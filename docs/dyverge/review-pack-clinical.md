@@ -66,8 +66,15 @@ different operating systems meeting (Double Empathy Problem), never one person w
 18. "Did that help?" only reorders options. Any harm in adapting to it?
 19. The Compass is now asked for the likeliest reading plus one other. Is this the right
     way to avoid presenting one explanation as certain?
-20. The safety gates are English regular expressions (`HARD`, `SOFT`, `COERCION`,
-    `SENSORY_DENIAL`, `CONTEMPT` in the app). Please review the lists for gaps.
+20. The safety gates are keyword lists. English is the original. Spanish, French, German,
+    Portuguese, Italian, Polish, Russian, Arabic and Hindi are **drafts written by Claude**
+    (`dyverge-core/src/gates.ts`). Please have a native-speaking clinician review each list for
+    gaps and for phrases that fire wrongly. Until then, is it acceptable for the app to run them
+    with a notice, or should it decline everything except English (one switch)?
+21. The soft gate fires on ordinary frustration as well as despair ("I can't take this anymore").
+    One gentle question is the cost. Acceptable?
+22. A forgotten passphrase loses a person's private history for good. Is that acceptable for
+    this audience, and is the warning wording right?
 
 ## Out of scope for this review
 

@@ -224,6 +224,18 @@ describe('what the app does with each result', () => {
     assert.equal(assessText("I give up").action, 'soft');
   });
 
+  it('can switch the drafts off: they are declined until reviewed, English and hard phrases are not', () => {
+    const off = { allowDrafts: false };
+    for (const lang of Object.keys(SAMPLES)) {
+      const t = SAMPLES[lang]!.coverage;
+      assert.equal(assessText(t, off).action, 'decline', lang);
+      assert.equal(assessText(t).action, 'ok', `${lang} with drafts on`);
+    }
+    assert.equal(assessText('Dinner at seven? Let me know.', off).action, 'ok');
+    assert.equal(assessText('Estoy muy cansada, quiero morirme', off).action, 'stop');
+    assert.equal(assessText('I want to die', off).action, 'stop');
+  });
+
   it('reads scripts', () => {
     assert.equal(dominantScript('hello'), 'latin');
     assert.equal(dominantScript('привет'), 'cyrillic');

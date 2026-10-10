@@ -255,7 +255,7 @@ ships. UK only until then.
 
 ## 11. Built so far: `dyverge-core/` and the app
 
-`dyverge-core/` is framework-free TypeScript, no runtime dependencies, 76 tests.
+`dyverge-core/` is framework-free TypeScript, no runtime dependencies, 154 tests, plus a browser smoke test.
 It was rebased on 11 Oct onto the real app's data model (`lenses`, `care`,
 `receiveNote`, `needToHear`, `write`: no diagnosis, no ratings). The app is in
 `dyverge-app/dyverge-app.jsx`, committed first unmodified so every change is a clean diff.
@@ -266,10 +266,12 @@ It was rebased on 11 Oct onto the real app's data model (`lenses`, `care`,
 | `capacity.ts` | Battery to zone. No sit-down while either person is flooded. |
 | `matcher.ts` | Communication tools from each person's own lenses and words. Every tip carries the reason it fired, and only restates what they wrote. |
 | `pathways.ts` | **The plural-pathways rule.** Enforced on every set it builds. Inlined into the app by `scripts/build-app.ts`. |
+| `gates.ts` | **Safety gates in ten languages.** Section 14. Inlined into the app. |
+| `vault.ts` | **Per-person encrypted private spaces.** Section 15. Inlined into the app. |
 | `session.ts`, `proposals.ts`, `routes.ts`, `language.ts`, `access.ts` | As described earlier: sit-down rules, proposals, reviewed routes by locale, copy lint, restricted modules. |
 
-Not built: the sit-down UI, the per-person vault, the gate runner for other languages,
-partner sync, the facilitator call.
+Not built: the sit-down UI, a second person's own vault and the role swap, partner sync,
+the facilitator call, translation between languages.
 
 ## 13. Never one approach (11 Oct 2026)
 
@@ -321,3 +323,66 @@ routes are checked per locale before a joint session; observations expire after
 built and blocks real use**: because the app is local-first on one shared device,
 the two people can read each other's private data. It needs a per-person encrypted
 vault (internal-prechecks L1).
+
+## 14. Languages (12 Oct 2026)
+
+Fynn's question: why decline other languages when we could cover them now? We can, and
+now do, with one honest limit: **only English has been reviewed, and that review was the
+original author's, not a clinician's.**
+
+- **English** is the original baseline. The regular expressions are copied verbatim and a
+  test compares the new engine with the original code on a corpus and on 4,000 random
+  English sentences. Behaviour is unchanged.
+- **Nine draft languages**: Spanish, French, German, Portuguese, Italian, Polish, Russian,
+  Arabic, Hindi. Written by Claude without native-speaker or clinical review. Each has hard,
+  soft and power lists. Tests prove self-consistency only (each pattern fires on what it was
+  written for and stays quiet on everyday speech), not real-world coverage.
+- **Every language runs on every text.** A crisis phrase in Spanish inside an English
+  message still stops. A wrongly guessed language cannot hide one.
+- **A hard hit always stops**, in any language, even one the app cannot otherwise check.
+- **Languages with no gates are declined**, not passed as if checked: Turkish, Dutch,
+  Swedish, Chinese, Japanese, Korean, Hebrew, Greek, Thai, Ukrainian, Persian and the rest.
+  The screen says plainly what it covers and that nothing was sent or saved.
+- **Draft languages say so**, at the point of use: "Safety checks in Español are new, and
+  they cover less than they do in English", with support routes one tap away.
+- **One switch**: `GATE_DRAFT_LANGUAGES` in the app. `false` declines everything except
+  English until the drafts are reviewed.
+- Older iPhones (before iOS 16.4) cannot parse regex lookbehind, which would stop the app
+  loading, so the engine does not use it. A test enforces this.
+
+What still has to happen before the drafts lose their notice: a native-speaker clinician
+per language reviews the lists, and each language's real support routes are reviewed
+(routes are UK only today; the draft screens still say "your local emergency number").
+
+Not done: translating between languages (the Compass still writes its reading in English).
+
+## 15. Private spaces (12 Oct 2026)
+
+Fynn's decision: a vault per person, and only shared communication crosses over.
+
+- Each person's private data is encrypted on the phone (AES-GCM-256, key from PBKDF2-SHA256
+  at 210,000 rounds) under a passphrase only they know. The other person cannot read it, even
+  with the phone in their hand.
+- Every entry is bound to its owner and key, so an entry cannot be moved between people or
+  between keys without being caught.
+- **What crosses over** is decided in one place, `classifyKey`. Shared: Our words and the
+  agreement. Open: display settings, so the lock screen can follow them. **Everything else is
+  private by default**, including things not invented yet.
+- "Use without saving" keeps nothing on disk at all, instead of leaving things in plain text.
+- Older plain-text data is moved into the vault when a private space is made.
+- Lock now (Home and Settings), change passphrase, and erase-and-start-again if forgotten.
+  There is no recovery: any route back in is also a route in for someone else.
+- "Clear everything" empties the vault but keeps the passphrase, and never touches the vault itself.
+
+**Honest limits.** It keeps out someone who picks up the phone. A short passphrase would not
+stop an expert with the phone and time, and nothing protects a person who is made to hand
+their passphrase over. Both are said on the create screen.
+
+**Built for one person; the second is next.** The vault layer already holds any number of
+people, each with their own passphrase, and tests prove two people cannot open or swap each
+other's entries. The app uses one (`PERSON = "me"`). To finish the device-passed model, the app
+needs: a second person's first-run (their own name and passphrase), the role swap (the active
+person's vault becomes "me", the other's published profile becomes "partner"), agreement
+signatures stored per person, and an explicit "share my profile" step so that a profile only
+crosses over when its owner publishes it. Until then the partner is demo data held inside the
+one real person's vault.

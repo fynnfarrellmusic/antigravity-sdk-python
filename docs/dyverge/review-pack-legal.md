@@ -62,6 +62,16 @@ listing it for the reviewer to confirm, not advising on it.
 16. The safety gates only work in English. What must the app say, or refuse to do, for
     users writing in other languages?
 
+**Languages and the private space (added 12 Oct)**
+17. The app now checks text in ten languages and declines others. Gates for nine of them are
+    unreviewed drafts. What must it say, and what is the exposure if a draft misses a crisis
+    phrase? Does a visible "these checks are new" notice help, or does it create its own risk?
+18. Private data is encrypted on the device under a passphrase only its owner knows, and cannot
+    be recovered. How does that sit with access and erasure requests, with a person who loses
+    their passphrase, and with a court or a partner demanding access?
+19. What leaves the private space is Our words and the agreement. Is that the right line for
+    "shared communication", and what consent does each person need for a shared item?
+
 **Operational**
 12. Age: 18+ only. How must that be enforced and recorded?
 13. Terms, privacy notice and in-flow disclosures needed per jurisdiction.

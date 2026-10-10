@@ -38,7 +38,16 @@ const browser = await chromium.launch({
 });
 const errors = [];
 
-async function fresh(vibe, history) {
+const PASSPHRASE = 'correct horse battery';
+
+async function makeSpace(page, pass = PASSPHRASE) {
+  await page.locator('#vs-pass').fill(pass);
+  await page.locator('#vs-again').fill(pass);
+  await page.getByRole('button', { name: 'Lock my private space' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().waitFor();
+}
+
+async function fresh(vibe, history, opts = {}) {
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 } })).newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => {
@@ -53,6 +62,7 @@ async function fresh(vibe, history) {
     sessionStorage.setItem('seeded', '1');
   }, [vibe, history]);
   await page.goto(pathToFileURL(join(dir, 'index.html')).href);
+  if (!opts.raw) await makeSpace(page);
   return page;
 }
 
@@ -96,8 +106,8 @@ for (const vibe of [null, 'narrator', 'lightning', 'cocoon', 'spark', 'shapeshif
   await page.locator('button[aria-expanded]').first().click();
   await page.getByRole('button', { name: 'A bit' }).click();
   assert.ok(await page.getByText(/Noted\./).count());
-  const log = JSON.parse(await page.evaluate(() => localStorage.getItem('dyverge:toolLog')));
-  assert.deepEqual([log[0].id, log[0].helped], ['weight', 'some']);
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => localStorage.getItem('dyverge:toolLog')), null, 'what helped is not stored in plain text');
   await page.context().close();
 }
 
@@ -169,6 +179,132 @@ const bodyText = (page) => page.evaluate(() => document.body.innerText);
   await page.context().close();
 }
 
+// The private space (vault), driven through the real UI.
+const storageKeys = (page) => page.evaluate(() => Object.keys(localStorage));
+const storageText = (page) => page.evaluate(() => Object.keys(localStorage).map((k) => `${k}=${localStorage.getItem(k)}`).join('\n'));
+const PRIVATE_PLAIN = ['profiles', 'vibe', 'toolLog', 'translations', 'parks', 'checkins', 'needSpace', 'spoons'].map((k) => `dyverge:${k}`);
+
+{
+  // Older plain-text data is moved into the vault, and nothing private stays readable.
+  const page = await fresh('cocoon', [{ id: 'song', helped: 'yes' }]);
+  await page.getByRole('button', { name: /go in/i }).first().click(); // let the app write its state
+  await page.waitForTimeout(400);
+  const keys = await storageKeys(page);
+  for (const k of PRIVATE_PLAIN) assert.ok(!keys.includes(k), `${k} must not be stored in plain text`);
+  assert.ok(keys.includes('dyverge:vault:me:__header'), 'a vault exists');
+  assert.ok(keys.some((k) => k.startsWith('dyverge:vault:me:k:')), 'private data is stored in the vault');
+  const text = await storageText(page);
+  for (const secret of ['Fynn', 'cocoon', 'Jordan', PASSPHRASE]) assert.ok(!text.includes(secret), `"${secret}" is readable in storage`);
+  assert.ok(keys.includes('dyverge:words') || keys.includes('dyverge:agreement'), 'shared communication is stored where both can reach it');
+  await page.context().close();
+}
+
+{
+  // Locked after a reload. A wrong passphrase is refused. The right one brings everything back.
+  const page = await fresh('cocoon', [{ id: 'song', helped: 'yes' }, { id: 'song', helped: 'yes' }]);
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.waitForTimeout(400);
+  await page.reload();
+  assert.match(await bodyText(page), /Welcome back\./, 'locked after reload');
+  assert.doesNotMatch(await bodyText(page), /How is your battery/, 'the app does not render while locked');
+  await page.locator('#us-pass').fill('not the passphrase');
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.waitForTimeout(300);
+  assert.match(await bodyText(page), /That's not it\./, 'a wrong passphrase is refused');
+  await page.locator('#us-pass').fill(PASSPHRASE);
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().waitFor();
+  await flood(page);
+  assert.deepEqual(await toolNames(page), ['Weight on', 'Sound off', 'One song'], 'private data survives a lock and unlock');
+  await page.context().close();
+}
+
+{
+  // Lock now, from Settings. Clear everything keeps the passphrase.
+  const page = await fresh(null);
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: 'Lock your private space' }).click();
+  await page.waitForTimeout(200);
+  assert.match(await bodyText(page), /Welcome back\./, 'the Lock button on Home locks');
+  await page.locator('#us-pass').fill(PASSPHRASE);
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().waitFor();
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Lock now' }).click();
+  await page.waitForTimeout(200);
+  assert.match(await bodyText(page), /Welcome back\./, 'Lock now in Settings locks');
+  await page.locator('#us-pass').fill(PASSPHRASE);
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().waitFor();
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Clear everything on this phone' }).click();
+  await page.getByRole('button', { name: 'Yes, clear it' }).click();
+  await page.waitForTimeout(400);
+  assert.ok((await storageKeys(page)).includes('dyverge:vault:me:__header'), 'clearing everything keeps the private space and its passphrase');
+  await page.reload();
+  assert.match(await bodyText(page), /Welcome back\./, 'still locked after clearing everything');
+  await page.context().close();
+}
+
+{
+  // Change passphrase.
+  const page = await fresh(null);
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Change passphrase' }).click();
+  await page.locator('#cp-cur').fill('nope nope nope');
+  await page.locator('#cp-new').fill('a brand new phrase');
+  await page.locator('#cp-again').fill('a brand new phrase');
+  await page.getByRole('button', { name: 'Change it' }).click();
+  await page.waitForTimeout(400);
+  assert.match(await bodyText(page), /not your current passphrase/);
+  await page.locator('#cp-cur').fill(PASSPHRASE);
+  await page.getByRole('button', { name: 'Change it' }).click();
+  await page.waitForTimeout(600);
+  assert.match(await bodyText(page), /Passphrase changed\./);
+  await page.reload();
+  await page.locator('#us-pass').fill(PASSPHRASE);
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.waitForTimeout(300);
+  assert.match(await bodyText(page), /That's not it\./, 'the old passphrase stops working');
+  await page.locator('#us-pass').fill('a brand new phrase');
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().waitFor();
+  await page.context().close();
+}
+
+{
+  // Use without saving: nothing private ever reaches storage.
+  const page = await fresh(null, undefined, { raw: true });
+  await page.getByRole('button', { name: 'Use without saving' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.waitForTimeout(400);
+  const keys = await storageKeys(page);
+  assert.ok(!keys.some((k) => k.startsWith('dyverge:vault:')), 'no vault is written');
+  for (const k of PRIVATE_PLAIN) assert.ok(!keys.includes(k), `${k} must not be stored`);
+  assert.ok(!(await storageText(page)).includes('Fynn'), 'no private text reaches storage');
+  await page.reload();
+  assert.match(await bodyText(page), /Make your private space\./, 'nothing was kept');
+  await page.context().close();
+}
+
+{
+  // Forgotten passphrase: erase and start again. Shared things stay.
+  const page = await fresh(null);
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.waitForTimeout(400);
+  await page.reload();
+  await page.getByRole('button', { name: "I've forgotten it" }).click();
+  await page.getByRole('button', { name: 'Erase my private space' }).click();
+  await page.getByRole('button', { name: 'Yes, erase it' }).click();
+  await page.waitForTimeout(200);
+  assert.match(await bodyText(page), /Make your private space\./);
+  assert.ok(!(await storageKeys(page)).some((k) => k.startsWith('dyverge:vault:')), 'the vault is gone');
+  await page.context().close();
+}
+
 assert.deepEqual(errors, [], 'no page errors');
 await browser.close();
-console.log('Smoke test passed: plural pathways and multilingual gates work in the real app.');
+console.log('Smoke test passed: plural pathways, multilingual gates and the private space work in the real app.');
