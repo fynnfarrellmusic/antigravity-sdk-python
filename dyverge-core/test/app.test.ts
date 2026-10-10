@@ -1,13 +1,32 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { applyToApp, generatedBlock } from '../scripts/build-app.ts';
+import { applyAll } from '../scripts/build-app.ts';
 import { appSource, appDefaultTools, TOOL_FAMILY } from './app-data.ts';
 
 describe('the app and the core stay in step', () => {
-  it('runs exactly the pathway code the tests cover', () => {
+  it('runs exactly the gate and pathway code the tests cover', () => {
     const app = appSource();
-    assert.equal(applyToApp(app, generatedBlock()), app, 'run: node scripts/build-app.ts');
+    assert.equal(applyAll(app), app, 'run: node scripts/build-app.ts');
+  });
+
+  it('has no second, hand-written copy of the gates', () => {
+    const app = appSource();
+    assert.doesNotMatch(app, /^const HARD = /m);
+    assert.doesNotMatch(app, /^function powerCheck\(str\) \{/m);
+  });
+
+  it('runs every Compass message through the multilingual assessment, and declines unchecked languages', () => {
+    const app = appSource();
+    assert.match(app, /const \{ action \} = assessText\(\[text, before\]\.join\(" "\)\);/);
+    assert.match(app, /if \(action === "decline"\) \{ setStep\("language"\); return; \}/);
+    assert.match(app, /step === "language" &&/);
+    assert.match(app, /I can't check this language yet\./);
+  });
+
+  it('tells people when checks in their language are new', () => {
+    assert.match(appSource(), /cover\.status === "draft" &&/);
+    assert.match(appSource(), /are new, and they cover less than they do in English/);
   });
 
   it('ships the professional-pathways flag OFF', () => {

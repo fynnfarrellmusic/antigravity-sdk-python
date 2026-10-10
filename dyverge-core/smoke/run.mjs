@@ -21,7 +21,7 @@ writeFileSync(
   `import React from "react"; import { createRoot } from "react-dom/client"; import App from ${JSON.stringify(appFile)};
 createRoot(document.getElementById("root")).render(<App />);`,
 );
-writeFileSync(join(dir, 'index.html'), '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0"><div id="root"></div><script src="out.js"></script>');
+writeFileSync(join(dir, 'index.html'), '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0"><div id="root"></div><script src="out.js"></script>');
 await build({
   entryPoints: [join(dir, 'entry.jsx')],
   bundle: true,
@@ -120,6 +120,55 @@ for (const vibe of [null, 'narrator', 'lightning', 'cocoon', 'spark', 'shapeshif
   await page.context().close();
 }
 
+// Compass: language handling, driven through the real UI.
+async function compass(page, text) {
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: 'Open' }).first().click();
+  await page.getByText('Before I send').click();
+  await page.locator('#dy-message').fill(text);
+  await page.getByRole('button', { name: 'Continue' }).click();
+  await page.waitForTimeout(100);
+}
+const bodyText = (page) => page.evaluate(() => document.body.innerText);
+
+{
+  const page = await fresh(null);
+  await compass(page, 'Çok yorgunum ve ne diyeceğimi bilmiyorum, ben her şeyden bıkmıştım ama bir şey yok');
+  await page.getByRole('button', { name: 'Translate it' }).click();
+  await page.waitForTimeout(150);
+  const t = await bodyText(page);
+  assert.match(t, /I can't check this language yet\./, 'unsupported language is declined');
+  assert.match(t, /Nothing you wrote has been sent or saved/);
+  assert.match(t, /Español/, 'tells people which languages it does cover');
+  await page.context().close();
+}
+{
+  const page = await fresh(null);
+  await compass(page, 'Estoy muy cansada y no sé qué decir hoy');
+  const t = await bodyText(page);
+  assert.match(t, /Safety checks in Español are new/, 'draft language shows the notice');
+  assert.ok(await page.getByRole('button', { name: 'Support routes' }).count());
+  await page.context().close();
+}
+{
+  const page = await fresh(null);
+  await compass(page, 'Quiero morirme');
+  await page.getByRole('button', { name: 'Translate it' }).click();
+  await page.waitForTimeout(150);
+  assert.match(await bodyText(page), /you deserve a person/, 'a Spanish crisis phrase stops the flow');
+  await page.context().close();
+}
+{
+  const page = await fresh(null);
+  await compass(page, 'Dinner at seven? Let me know.');
+  const t = await bodyText(page);
+  assert.doesNotMatch(t, /Safety checks in .* are new/, 'English shows no draft notice');
+  await page.getByRole('button', { name: 'Translate it' }).click();
+  await page.waitForTimeout(400);
+  assert.doesNotMatch(await bodyText(page), /can't check this language|you deserve a person/, 'English passes the gates as before');
+  await page.context().close();
+}
+
 assert.deepEqual(errors, [], 'no page errors');
 await browser.close();
-console.log('Smoke test passed: plural pathways work in the real app.');
+console.log('Smoke test passed: plural pathways and multilingual gates work in the real app.');

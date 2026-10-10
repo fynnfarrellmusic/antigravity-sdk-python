@@ -45,7 +45,7 @@ export interface CommunicationProfile {
 export type ProfileFieldKey = 'lenses' | 'receiveNote' | 'care' | 'needToHear' | 'write';
 
 /** What the app's on-device gates return: null means nothing fired. */
-export type GateOutcome = 'soft' | 'hard' | 'power' | null;
+export type GateOutcome = 'hard' | 'power' | 'soft' | null;
 
 export interface Turn {
   id: string;
