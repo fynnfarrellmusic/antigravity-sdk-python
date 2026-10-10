@@ -52,7 +52,7 @@ listing it for the reviewer to confirm, not advising on it.
     control, family proceedings). Does device-local storage change this, and what
     should the export function include?
 
-**Plural pathways and signposting (added 11 Oct)**
+**Plural pathways and signposting (added 10 Oct)**
 14. The app can point users to kinds of professional help (a doctor, couples support,
     one-to-one therapy, neurodivergence assessment). Does naming these, unranked and
     with "the app does not diagnose", stay clear of providing or recommending treatment?
@@ -62,7 +62,7 @@ listing it for the reviewer to confirm, not advising on it.
 16. The safety gates only work in English. What must the app say, or refuse to do, for
     users writing in other languages?
 
-**Languages and the private space (added 12 Oct)**
+**Languages and the private space (added 10 Oct)**
 17. The app now checks text in ten languages and declines others. Gates for nine of them are
     unreviewed drafts. What must it say, and what is the exposure if a draft misses a crisis
     phrase? Does a visible "these checks are new" notice help, or does it create its own risk?

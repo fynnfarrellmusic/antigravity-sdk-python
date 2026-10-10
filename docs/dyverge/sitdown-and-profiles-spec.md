@@ -1,6 +1,6 @@
 # dYverge: sit-down and profile module spec (draft 2)
 
-Status: draft 2, 11 Oct 2026. Built from the dYverge Handoff (10 Oct 2026).
+Status: draft 2, 10 Oct 2026. Built from the dYverge Handoff (10 Oct 2026).
 The name stays dYverge: this is a module of the app, not a separate product.
 "couplesTherapY" was a working title and is retired. Decisions made are in section 8.
 Built so far: the framework-free logic in `dyverge-core/` (see section 11).
@@ -181,7 +181,7 @@ tool for this moment, and you deserve a person." Nothing else.
 
 ## 8. Decisions
 
-Made (Fynn, 11 Oct 2026):
+Made (Fynn, 10 Oct 2026):
 
 1. **Name:** dYverge. The module is part of the app.
 2. **Where it lives:** TypeScript inside the React app, local-first. The Python
@@ -255,8 +255,8 @@ ships. UK only until then.
 
 ## 11. Built so far: `dyverge-core/` and the app
 
-`dyverge-core/` is framework-free TypeScript, no runtime dependencies, 154 tests, plus a browser smoke test.
-It was rebased on 11 Oct onto the real app's data model (`lenses`, `care`,
+`dyverge-core/` is framework-free TypeScript, no runtime dependencies, a unit-test suite (`npm test`) and a browser smoke test (`npm run smoke`).
+It was rebased on 10 Oct onto the real app's data model (`lenses`, `care`,
 `receiveNote`, `needToHear`, `write`: no diagnosis, no ratings). The app is in
 `dyverge-app/dyverge-app.jsx`, committed first unmodified so every change is a clean diff.
 
@@ -268,12 +268,13 @@ It was rebased on 11 Oct onto the real app's data model (`lenses`, `care`,
 | `pathways.ts` | **The plural-pathways rule.** Enforced on every set it builds. Inlined into the app by `scripts/build-app.ts`. |
 | `gates.ts` | **Safety gates in ten languages.** Section 14. Inlined into the app. |
 | `vault.ts` | **Per-person encrypted private spaces.** Section 15. Inlined into the app. |
+| `people.ts` | **Who is on the phone, and what crosses between them**: names, published profile and spoons (allow-listed fields only), and the agreement with one signature each. Inlined into the app. |
 | `session.ts`, `proposals.ts`, `routes.ts`, `language.ts`, `access.ts` | As described earlier: sit-down rules, proposals, reviewed routes by locale, copy lint, restricted modules. |
 
-Not built: the sit-down UI, a second person's own vault and the role swap, partner sync,
-the facilitator call, translation between languages.
+Not built: the sit-down UI, partner sync across devices (not needed while the phone is passed
+between two people), the facilitator call, translation between languages.
 
-## 13. Never one approach (11 Oct 2026)
+## 13. Never one approach (10 Oct 2026)
 
 Principle, from Fynn: whatever the app assesses, it always offers several pathways and
 never assumes one approach or technique will work.
@@ -308,7 +309,7 @@ likeliest reading plus one other, never a single certain explanation.
 
 Not claimed: that any one pathway works. The app offers; the person decides.
 
-## 12. Restricted modules and the internal pre-review (11 Oct 2026)
+## 12. Restricted modules and the internal pre-review (10 Oct 2026)
 
 Until clinical and legal review sign off, the sit-down facilitator, observation
 drafting, profile proposals and screening are **restricted**: off by default, never
@@ -324,7 +325,7 @@ built and blocks real use**: because the app is local-first on one shared device
 the two people can read each other's private data. It needs a per-person encrypted
 vault (internal-prechecks L1).
 
-## 14. Languages (12 Oct 2026)
+## 14. Languages (10 Oct 2026)
 
 Fynn's question: why decline other languages when we could cover them now? We can, and
 now do, with one honest limit: **only English has been reviewed, and that review was the
@@ -356,7 +357,7 @@ per language reviews the lists, and each language's real support routes are revi
 
 Not done: translating between languages (the Compass still writes its reading in English).
 
-## 15. Private spaces (12 Oct 2026)
+## 15. Private spaces (10 Oct 2026)
 
 Fynn's decision: a vault per person, and only shared communication crosses over.
 
@@ -372,17 +373,22 @@ Fynn's decision: a vault per person, and only shared communication crosses over.
 - Older plain-text data is moved into the vault when a private space is made.
 - Lock now (Home and Settings), change passphrase, and erase-and-start-again if forgotten.
   There is no recovery: any route back in is also a route in for someone else.
-- "Clear everything" empties the vault but keeps the passphrase, and never touches the vault itself.
+- "Clear my things" empties only that person's own things, what they shared and their signature. It keeps
+  their passphrase, and never touches the other person's space, Our words or display settings.
 
 **Honest limits.** It keeps out someone who picks up the phone. A short passphrase would not
 stop an expert with the phone and time, and nothing protects a person who is made to hand
-their passphrase over. Both are said on the create screen.
+their passphrase over. Both are said on the create screen. A third limit is **not** said in the app yet:
+a browser can clear a site's stored data on its own (finding A18 in `internal-prechecks.md`), and with no
+recovery a private space could then vanish. Whether and how to say it is an open decision (`decisions.md`).
 
-**Built for one person; the second is next.** The vault layer already holds any number of
-people, each with their own passphrase, and tests prove two people cannot open or swap each
-other's entries. The app uses one (`PERSON = "me"`). To finish the device-passed model, the app
-needs: a second person's first-run (their own name and passphrase), the role swap (the active
-person's vault becomes "me", the other's published profile becomes "partner"), agreement
-signatures stored per person, and an explicit "share my profile" step so that a profile only
-crosses over when its owner publishes it. Until then the partner is demo data held inside the
-one real person's vault.
+**Two people (built 10 Oct).** See `decisions.md`. In short: each person has their own private
+space and passphrase; the first person adds the second from inside their own unlocked space;
+the lock screen asks who is opening it by name when two people use the phone; what crosses over is
+only what someone publishes (their profile, optionally their spoon level), one signature each on
+the agreement, Our words, and names. Until the other person exists, a labelled example stands in.
+The shared items are kept in the open so the other person can read them, so they are not protected
+by the owner's passphrase, and the app says so where they are shared. A name is written to the list
+before the passphrase becomes a key (so a third person is refused at once). If the app is closed in
+that moment, the name is dropped the next time it opens, so the lock screen never shows someone who
+cannot get in (`pruneUnfinished`).

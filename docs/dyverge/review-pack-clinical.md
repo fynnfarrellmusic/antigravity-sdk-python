@@ -56,7 +56,7 @@ different operating systems meeting (Double Empathy Problem), never one person w
 15. Where is the honest line between "therapeutically informed" and "therapy" for
     this product, in your professional judgement?
 
-**F. Plural pathways (added 11 Oct)**
+**F. Plural pathways (added 10 Oct)**
 16. The app now always offers several kinds of help and never one (spec section 13).
     Is the split into five regulation families (express, move, quiet, shift, choose)
     defensible, or would you group the tools differently?
