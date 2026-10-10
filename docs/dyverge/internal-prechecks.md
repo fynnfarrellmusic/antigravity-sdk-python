@@ -99,6 +99,22 @@ no diagnosing). Some foundations are weaker than the handoff implies.
 
 ---
 
+## Part 3. What reading the real app showed (11 Oct 2026)
+
+The app file (`dyverge-app/dyverge-app.jsx`) arrived after Parts 1 and 2 were written.
+Reading it confirmed some findings, changed others, and added new ones.
+
+| # | Finding | Severity | Status |
+|---|---|---|---|
+| A1 | **Confirms L1.** Everything is plaintext in `localStorage` under `dyverge:`, and both people's profiles sit in one object. Anyone who opens the app on that phone can read the other's profile. | **High** | Not fixed. Needs the per-person vault. |
+| A2 | **The safety gates are English-only regular expressions.** Someone writing in another language gets no hard, soft or power gate at all, and no warning that they have none. For an app meant to cross borders this is the biggest safety gap. | **High** | Not fixed. Until language is detected or declared, Compass should say plainly it cannot check non-English text, or decline it. Clinician to review the English lists too: they will miss phrasing. |
+| A3 | **The Compass call sends the other person's profile text** (`receiveNote`, `needToHear`, `write`) to the API, as well as the user's own. Settings says only "the Compass translation" leaves the phone, which is true, but it does not say it includes a second person's words. | Medium to High | Not fixed. Legal pack Q1 and Q3 now cover it: that person's consent, and the disclosure wording. I did not change the copy. |
+| A4 | **Prompt injection.** In "Something I got" mode the other person's message is pasted into the model prompt. A message containing instructions could steer the reading the user sees. | Medium | **Fixed** with a prompt rule that messages and profiles are data, not instructions, and a test. Not a complete defence. |
+| A5 | **Singular approach.** Each Vibe profile mapped to three tools of one family (Cocoon: weight, sound off, lights). Sanctuary showed only those. The Compass gave one explanation of the pattern. | Medium | **Fixed.** See spec section 13. |
+| A6 | The handoff describes neurotypes, 1 to 5 love-language ratings and locale in the profile. The app has none of them: it holds `lenses`, `care` and three free-text fields, and no diagnosis. That is the more de-pathologising choice. | Info | The core now follows the app, not the handoff. The earlier neurotype privacy fix is moot: there is nothing to protect. |
+| A7 | The partner is demo data ("Jordan"). There is no partner sync, so the two-person flows are untested with a real second person. | Info | Known to you. Noted for the clinical review. |
+| A8 | No locale, language, or per-country support routes. Routes are UK only. | High for cross-border | `routes.ts` blocks unreviewed locales in the core. The app does not use it yet, because the app has no locale. |
+
 ## What to do next
 
 1. Build the per-person vault (L1 and C3). It is the biggest gap, and everything private depends on it.

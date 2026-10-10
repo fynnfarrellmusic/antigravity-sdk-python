@@ -56,6 +56,19 @@ different operating systems meeting (Double Empathy Problem), never one person w
 15. Where is the honest line between "therapeutically informed" and "therapy" for
     this product, in your professional judgement?
 
+**F. Plural pathways (added 11 Oct)**
+16. The app now always offers several kinds of help and never one (spec section 13).
+    Is the split into five regulation families (express, move, quiet, shift, choose)
+    defensible, or would you group the tools differently?
+17. Review the professional list, which ships off: a doctor, relationship support,
+    one-to-one support, neurodivergence assessment or support. Is anything missing,
+    misleading or in the wrong order? It is deliberately unranked.
+18. "Did that help?" only reorders options. Any harm in adapting to it?
+19. The Compass is now asked for the likeliest reading plus one other. Is this the right
+    way to avoid presenting one explanation as certain?
+20. The safety gates are English regular expressions (`HARD`, `SOFT`, `COERCION`,
+    `SENSORY_DENIAL`, `CONTEMPT` in the app). Please review the lists for gaps.
+
 ## Out of scope for this review
 
 Visual design, storage, anything to do with the Compass translation itself.

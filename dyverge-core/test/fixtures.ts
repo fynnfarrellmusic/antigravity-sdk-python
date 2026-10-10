@@ -1,35 +1,12 @@
 import type { CommunicationProfile, Observation } from '../src/types.ts';
+import type { Person } from '../src/matcher.ts';
 
 export function profile(over: Partial<CommunicationProfile> = {}): CommunicationProfile {
-  return {
-    personId: 'a',
-    name: 'Alex',
-    locale: 'en-GB',
-    languages: ['en'],
-    neurotypes: [],
-    shareNeurotypes: false,
-    receive: {
-      lowDemand: false,
-      directness: 'depends',
-      contextStyle: 'depends',
-      channel: 'either',
-      needsReasonWithAsk: false,
-      literalFirst: false,
-      processingMinutes: 0,
-    },
-    needToHear: [],
-    howIWrite: [],
-    loveLanguages: {
-      given: { words: 3, acts: 3, gifts: 3, time: 3, touch: 3 },
-      received: { words: 3, acts: 3, gifts: 3, time: 3, touch: 3 },
-    },
-    worries: [],
-    sensoryNeeds: [],
-    connectionStyles: [],
-    updatedAt: '2026-10-10T00:00:00Z',
-    provenance: {},
-    ...over,
-  };
+  return { name: 'Alex', lenses: [], receiveNote: '', care: [], needToHear: '', write: '', ...over };
+}
+
+export function person(id: string, over: Partial<CommunicationProfile> = {}): Person {
+  return { id, profile: profile({ name: id === 'a' ? 'Alex' : 'Bo', ...over }) };
 }
 
 export function observation(over: Partial<Observation> & { sessions: string[] }): Observation {
@@ -38,9 +15,9 @@ export function observation(over: Partial<Observation> & { sessions: string[] })
   return {
     id: rest.id ?? 'o1',
     owner,
-    field: 'receive',
-    patternKey: 'pause-means-processing',
-    text: 'A quiet pause after a direct question usually means processing.',
+    field: 'lenses',
+    patternKey: 'time-before-answering',
+    text: 'A quiet pause after a direct question usually means they are processing.',
     evidence: sessions.map((s, i) => ({
       sitdownId: s,
       turnId: `t${i}`,

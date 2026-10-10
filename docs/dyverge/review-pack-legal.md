@@ -52,6 +52,16 @@ listing it for the reviewer to confirm, not advising on it.
     control, family proceedings). Does device-local storage change this, and what
     should the export function include?
 
+**Plural pathways and signposting (added 11 Oct)**
+14. The app can point users to kinds of professional help (a doctor, couples support,
+    one-to-one therapy, neurodivergence assessment). Does naming these, unranked and
+    with "the app does not diagnose", stay clear of providing or recommending treatment?
+15. The Compass sends the other person's profile text to the API as well as the user's
+    own. What consent and disclosure does that second person need? The Settings line
+    currently says only that "the Compass translation" leaves the phone.
+16. The safety gates only work in English. What must the app say, or refuse to do, for
+    users writing in other languages?
+
 **Operational**
 12. Age: 18+ only. How must that be enforced and recorded?
 13. Terms, privacy notice and in-flow disclosures needed per jurisdiction.

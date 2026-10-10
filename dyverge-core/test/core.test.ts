@@ -9,14 +9,13 @@ import {
   lintCopy,
   matchTools,
   nameRuleOk,
-  pruneStaleObservations,
   observationsAllowed,
   proposalsFromObservations,
   sessionMustStop,
   zoneFromBattery,
 } from '../src/index.ts';
 import type { Sitdown, Turn } from '../src/index.ts';
-import { observation, profile } from './fixtures.ts';
+import { observation, person } from './fixtures.ts';
 
 describe('capacity', () => {
   it('maps battery to zones at the boundaries', () => {
@@ -45,115 +44,73 @@ describe('capacity', () => {
   });
 });
 
-describe('matchTools', () => {
-  const a = profile({ personId: 'a', name: 'Alex' });
-  const b = profile({ personId: 'b', name: 'Bo' });
+describe('communication tools', () => {
+  const a = person('a');
+  const ids = (speaker = a, listener = person('b'), zones = {}) =>
+    matchTools({ speaker, listener, zones }, 99)[0].tools.map((t) => t.toolId);
 
-  it('offers only regulation tools, space first, to a flooded person', () => {
-    const [ra, rb] = matchTools({ speaker: a, listener: b, zones: { a: 'flooded', b: 'steady' } });
+  it('gives a flooded person no communication tools', () => {
+    const [ra, rb] = matchTools({ speaker: a, listener: person('b', { lenses: ['literal'] }), zones: { a: 'flooded' } }, 99);
     assert.equal(ra.flooded, true);
-    assert.deepEqual(ra.tools.map((t) => t.toolId), ['need-space', 'breathing-orb']);
+    assert.deepEqual(ra.tools, []);
     assert.equal(rb.flooded, false);
   });
 
-  it('puts a flooded person own sensory reset after space and the orb', () => {
-    const s = profile({ personId: 'a', sensoryNeeds: ['deep-pressure'] });
-    const [ra] = matchTools({ speaker: s, listener: b, zones: { a: 'flooded', b: 'steady' } });
-    assert.deepEqual(ra.tools.map((t) => t.toolId), ['need-space', 'breathing-orb', 'sensory-reset']);
-  });
-
-  it('returns at most three tools and every one carries a reason', () => {
-    const rich = profile({
-      personId: 'b',
-      name: 'Bo',
-      languages: ['pt'],
-      neurotypes: ['pda', 'adhd'],
-      receive: { ...b.receive, literalFirst: true, needsReasonWithAsk: true, channel: 'written', processingMinutes: 20 },
-    });
-    const [ra, rb] = matchTools({ speaker: a, listener: rich, zones: { a: 'steady', b: 'steady' } });
-    for (const r of [ra, rb]) {
-      assert.ok(r.tools.length <= 3);
-      for (const t of r.tools) assert.ok(t.because.length > 0);
+  it('tailors the speaker tools to the listener lenses, one lens at a time', () => {
+    const expected: Record<string, string> = {
+      literal: 'say-it-plainly',
+      demand: 'say-how-it-is',
+      tone: 'name-the-tone',
+      rejection: 'say-what-it-isnt',
+      flood: 'keep-it-short',
+      silence: 'give-a-return-time',
+      time: 'no-rush',
+    };
+    for (const [lens, tool] of Object.entries(expected)) {
+      const listener = person('b', { lenses: [lens as never] });
+      assert.deepEqual(ids(a, listener), [tool], lens);
     }
   });
 
-  it('tailors the speaker tools to the listener profile', () => {
-    const listener = profile({
-      personId: 'b',
-      name: 'Bo',
-      receive: { ...b.receive, needsReasonWithAsk: true, literalFirst: true, lowDemand: true },
-    });
-    const [ra] = matchTools({ speaker: a, listener, zones: { a: 'steady', b: 'steady' } });
-    const ids = ra.tools.map((t) => t.toolId);
-    assert.ok(ids.includes('say-how-it-is'));
-    assert.ok(ids.includes('reason-with-ask'));
+  it('offers nothing when the listener has written nothing, rather than guessing', () => {
+    assert.deepEqual(ids(), []);
   });
 
-  it('never reads a neurotype the owner has not shared', () => {
-    const hidden = profile({ personId: 'b', name: 'Bo', neurotypes: ['pda'], shareNeurotypes: false });
-    const shared = profile({ personId: 'b', name: 'Bo', neurotypes: ['pda'], shareNeurotypes: true });
-    const ids = (l: typeof hidden) =>
-      matchTools({ speaker: a, listener: l, zones: {} })[0].tools.map((t) => t.toolId);
-    assert.ok(!ids(hidden).includes('say-how-it-is'));
-    assert.ok(ids(shared).includes('say-how-it-is'));
+  it('quotes the listener own words and never invents any', () => {
+    const listener = person('b', { needToHear: 'What you want, said plainly.', write: 'I go short when tired.', care: ['Help with things'] });
+    const recs = matchTools({ speaker: a, listener, zones: {} }, 99)[0].tools;
+    const text = recs.flatMap((r) => r.because).join(' ');
+    assert.ok(text.includes('What you want, said plainly.'));
+    assert.ok(text.includes('I go short when tired.'));
+    assert.ok(text.includes('help with things'));
   });
 
-  it('never tells someone they said something they did not', () => {
-    const adhd = profile({ personId: 'a', neurotypes: ['adhd'] });
-    const [ra] = matchTools({ speaker: adhd, listener: b, zones: { a: 'steady', b: 'steady' } });
-    for (const t of ra.tools) for (const why of t.because) assert.ok(!/you said/i.test(why), why);
+  it('offers a letter reply to a listener who is running low or floods easily', () => {
+    const low = matchTools({ speaker: a, listener: person('b'), zones: { b: 'stretched' } }, 99)[1].tools;
+    assert.ok(low.some((t) => t.toolId === 'menu-replies'));
+    const steady = matchTools({ speaker: a, listener: person('b'), zones: {} }, 99)[1].tools;
+    assert.ok(!steady.some((t) => t.toolId === 'menu-replies'));
+    const floods = matchTools({ speaker: a, listener: person('b', { lenses: ['flood'] }), zones: {} }, 99)[1].tools;
+    assert.ok(floods.some((t) => t.toolId === 'menu-replies'));
   });
 
-  it('flags a love-language mismatch and stays quiet on a match', () => {
-    const giver = profile({
-      personId: 'a',
-      name: 'Alex',
-      loveLanguages: {
-        given: { words: 1, acts: 5, gifts: 1, time: 1, touch: 1 },
-        received: { words: 3, acts: 3, gifts: 3, time: 3, touch: 3 },
-      },
-    });
-    const receiver = (top: 'words' | 'acts') =>
-      profile({
-        personId: 'b',
-        name: 'Bo',
-        loveLanguages: {
-          given: { words: 3, acts: 3, gifts: 3, time: 3, touch: 3 },
-          received: { words: top === 'words' ? 5 : 1, acts: top === 'acts' ? 5 : 1, gifts: 1, time: 1, touch: 1 },
-        },
-      });
-    const mismatch = matchTools({ speaker: giver, listener: receiver('words'), zones: {} })[0];
-    assert.ok(mismatch.tools.some((t) => t.toolId === 'their-love-language'));
-    const match = matchTools({ speaker: giver, listener: receiver('acts'), zones: {} })[0];
-    assert.ok(!match.tools.some((t) => t.toolId === 'their-love-language'));
+  it('lets a listener who needs time take it', () => {
+    const listener = person('b', { lenses: ['time'] });
+    const tools = matchTools({ speaker: a, listener, zones: {} }, 99)[1].tools.map((t) => t.toolId);
+    assert.ok(tools.includes('take-your-time'));
   });
 
-  it('suggests checking phrases when main languages differ', () => {
-    const pt = profile({ personId: 'b', name: 'Bo', languages: ['pt'] });
-    const [ra] = matchTools({ speaker: a, listener: pt, zones: {} });
-    assert.ok(ra.tools.some((t) => t.toolId === 'check-the-phrase'));
+  it('suggests side by side from either person own words', () => {
+    const sbs = 'Time side by side, each doing our own thing';
+    assert.ok(ids(person('a', { care: [sbs] }), person('b')).includes('side-by-side'));
+    assert.ok(ids(a, person('b', { care: [sbs] })).includes('side-by-side'));
   });
 
-  it('never uses a worry the owner has not shared', () => {
-    const private_ = profile({
-      personId: 'b',
-      name: 'Bo',
-      worries: [{ id: 'w', text: 'Being left', whatHelps: 'Tell me when you will be back', shareWithPartner: false }],
-    });
-    const shared = profile({
-      personId: 'b',
-      name: 'Bo',
-      worries: [{ id: 'w', text: 'Being left', whatHelps: 'Tell me when you will be back', shareWithPartner: true }],
-    });
-    const hidden = matchTools({ speaker: a, listener: private_, zones: {} })[0];
-    const shown = matchTools({ speaker: a, listener: shared, zones: {} })[0];
-    assert.ok(!hidden.tools.some((t) => t.toolId === 'offer-what-helps'));
-    assert.ok(shown.tools.some((t) => t.toolId === 'offer-what-helps'));
-  });
-
-  it('is deterministic', () => {
-    const ctx = { speaker: a, listener: b, zones: { a: 'stretched', b: 'steady' } } as const;
+  it('is deterministic and respects the cap', () => {
+    const listener = person('b', { lenses: ['literal', 'demand', 'tone', 'rejection', 'flood'] });
+    const ctx = { speaker: a, listener, zones: {} };
     assert.deepEqual(matchTools(ctx), matchTools(ctx));
+    assert.equal(matchTools(ctx, 3)[0].tools.length, 3);
   });
 });
 
@@ -201,8 +158,7 @@ describe('proposals', () => {
   it('keeps one person observations apart from another', () => {
     const mine = observation({ sessions: ['s1', 's2', 's3'], owner: 'a' });
     const theirs = observation({ id: 'o2', sessions: ['s1', 's2'], owner: 'b' });
-    const out = proposalsFromObservations([mine, theirs], []);
-    assert.deepEqual(out.map((p) => p.owner), ['a']);
+    assert.deepEqual(proposalsFromObservations([mine, theirs], []).map((p) => p.owner), ['a']);
   });
 });
 
@@ -217,8 +173,8 @@ describe('session rules', () => {
   });
 
   it('stops observations after a hard or power gate, not a soft one', () => {
-    assert.equal(observationsAllowed([turn('passed'), turn('soft')]), true);
-    assert.equal(observationsAllowed([turn('passed'), turn('power')]), false);
+    assert.equal(observationsAllowed([turn(null), turn('soft')]), true);
+    assert.equal(observationsAllowed([turn(null), turn('power')]), false);
     assert.equal(observationsAllowed([turn('hard')]), false);
     assert.equal(sessionMustStop([turn('soft')]), false);
     assert.equal(sessionMustStop([turn('power')]), true);
@@ -236,7 +192,7 @@ describe('session rules', () => {
       id: 's',
       startedAt: '2026-10-10T00:00:00Z',
       purpose: 'repair',
-      turns: [turn('passed', 'a'), { ...turn('passed', 'b'), content: 'mine' }],
+      turns: [turn(null, 'a'), { ...turn(null, 'b'), content: 'mine' }],
       summary: { heard: 'x', tryThis: 'y', confirmedBy: { a: 'd', b: 'd' } },
     };
     const after = deleteOwnWords(s, 'a');

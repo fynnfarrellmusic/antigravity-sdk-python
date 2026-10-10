@@ -56,13 +56,31 @@ leaves them out. Do that before any release.
 `access.auditLog()` records unlocks, failures, relocks and denials, never passcodes or
 user content.
 
+## Working with the app
+
+The app (`../dyverge-app/dyverge-app.jsx`) is a single file by design, so it cannot import
+this package. The plural-pathways code lives in `src/pathways.ts`, is tested here, and is
+inlined into the app between two markers with the types stripped:
+
+```sh
+npm run build:app     # rewrite the block in the app from src/pathways.ts
+npm run check:app     # fail if the app's block is out of date (a test also does this)
+npm run smoke         # build and drive the real app in headless Chromium, with assertions
+```
+
+Edit `src/pathways.ts`, never the generated block. The tests read the app file itself
+(tool ids, Vibe profiles, families), so a change in the app that breaks the rule fails here.
+
+`PATHWAYS_PROFESSIONAL` in the app ships `false` and a test enforces it.
+
 ## Other modules
 
 | Module | Does |
 |---|---|
 | `capacity.ts` | Battery to zone. No sit-down while either person is flooded. |
-| `matcher.ts` | Up to 3 tools per person, each with its reasons. Reads a partner's neurotype or worries only if the owner shared them. |
+| `matcher.ts` | Communication tools from each person's own lenses and words, each with its reason. |
+| `pathways.ts` | The plural-pathways rule: at least 3 kinds of help, at least 2 regulation families, always a person, always a way to say none fit. |
 | `session.ts` | Observations stop after a hard or power gate. Summaries need both people. Delete your own words alone. |
 | `proposals.ts` | Observation to proposal after 3 sessions. Pruning after 180 days. |
 | `routes.ts` | Reviewed support routes by locale. Joint sessions only where every person has them. |
-| `language.ts` | Lints copy against the handoff's banned words. |
+| `language.ts` | Lints copy for the handoff's banned words, and for overcertain claims. |

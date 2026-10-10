@@ -6,10 +6,18 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "node --test \"test/*.test.ts\""
+    "test": "node --test \"test/*.test.ts\"",
+    "build:app": "node scripts/build-app.ts",
+    "check:app": "node scripts/build-app.ts --check",
+    "smoke": "node smoke/run.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "lucide-react": "^1.54.0",
+    "playwright-core": "^1.64.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "typescript": "^7.0.2"
   }
 }

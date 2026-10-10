@@ -1,28 +1,28 @@
-import type {
-  CommunicationProfile,
-  LoveLanguage,
-  PersonId,
-  Zone,
-} from './types.ts';
+import type { CommunicationProfile, PersonId, Zone } from './types.ts';
 
 /**
- * Tool matching: which communication tools suit each person right now.
+ * Communication tools: what to try saying or doing, given each person's own profile.
  *
  * Deterministic and explainable on purpose. Every recommendation carries the
  * plain-language reasons it fired, so it can be read, tested and run offline.
- * No numeric scores leave this module: ranking is internal.
+ * Reasons only ever restate what the person wrote in their own profile. No
+ * numeric scores leave this module.
  *
- * A tool "helps" one person (`forPerson`) and may read the other's profile,
- * but only what that person has chosen to share.
+ * This is one input to the pathway builder (pathways.ts). It never decides alone:
+ * a set of tools is not a plan.
  */
 
 export type Role = 'speaker' | 'listener';
-export type Cost = 'low' | 'medium' | 'high';
+export type ToolCategory = 'words' | 'connection' | 'space';
+
+export interface Person {
+  id: PersonId;
+  profile: CommunicationProfile;
+}
 
 export interface MatchContext {
-  /** Who is about to speak, and who is listening. */
-  speaker: CommunicationProfile;
-  listener: CommunicationProfile;
+  speaker: Person;
+  listener: Person;
   zones: Record<PersonId, Zone>;
 }
 
@@ -30,309 +30,190 @@ export interface Tool {
   id: string;
   title: string;
   summary: string;
-  cost: Cost;
-  /** Regulation tools are the only ones offered when someone is flooded. */
-  regulation: boolean;
-  /** Works with no network. */
-  offline: boolean;
+  category: ToolCategory;
   /** Reasons this tool fits `self` when talking with `other`. Empty means no fit. */
-  fits: (self: CommunicationProfile, other: CommunicationProfile, role: Role) => string[];
+  fits: (self: CommunicationProfile, other: CommunicationProfile, role: Role, zone: Zone) => string[];
 }
 
 export interface Recommendation {
   toolId: string;
   title: string;
   summary: string;
+  category: ToolCategory;
   because: string[];
 }
 
 export interface PersonRecommendations {
   personId: PersonId;
-  /** Present when the person is flooded: no sit-down tools, regulation only. */
+  /** Flooded people get no communication tools: the interface removes options as capacity drops. */
   flooded: boolean;
   tools: Recommendation[];
 }
 
-const LOVE_LABEL: Record<LoveLanguage, string> = {
-  words: 'kind words',
-  acts: 'things done for them',
-  gifts: 'thoughtful gifts',
-  time: 'undivided time',
-  touch: 'physical closeness',
-};
-
-function topLoveLanguages(r: Record<LoveLanguage, number>): LoveLanguage[] {
-  const entries = Object.entries(r) as [LoveLanguage, number][];
-  const max = Math.max(...entries.map(([, v]) => v));
-  return entries.filter(([, v]) => v === max).map(([k]) => k).sort();
-}
-
-function sharedWorries(p: CommunicationProfile) {
-  return p.worries.filter((w) => w.shareWithPartner && w.whatHelps);
-}
+const SIDE_BY_SIDE = 'Time side by side, each doing our own thing';
 
 export const TOOLS: readonly Tool[] = [
-  {
-    id: 'breathing-orb',
-    title: 'Breathe with the orb',
-    summary: 'In for four, out for six. Nothing else to do.',
-    cost: 'low',
-    regulation: true,
-    offline: true,
-    fits: () => [], // offered by the flooded path, see matchTools
-  },
-  {
-    id: 'need-space',
-    title: 'Take some space',
-    summary: 'Send "I\'ve hit my limit. Not gone, not angry. Back by ___." A return time is required.',
-    cost: 'low',
-    regulation: true,
-    offline: true,
-    fits: () => [],
-  },
-  {
-    id: 'sensory-reset',
-    title: 'Your own reset',
-    summary: 'The thing your body already knows helps.',
-    cost: 'low',
-    regulation: true,
-    offline: true,
-    fits: (self) =>
-      self.sensoryNeeds.length > 0
-        ? [`You told us these help: ${self.sensoryNeeds.join(', ').replaceAll('-', ' ')}.`]
-        : [],
-  },
-  {
-    id: 'menu-replies',
-    title: 'Tap a reply',
-    summary: 'Choose from A, B or C instead of writing one.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self, _o, role) => {
-      const why: string[] = [];
-      if (role === 'listener') why.push('Tapping costs less than writing when you are running low.');
-      // Reads only the person's own profile. The reason states a general fact; it
-      // never claims the person said something they did not.
-      if (self.neurotypes.some((n) => n === 'adhd' || n === 'audhd' || n === 'autistic')) {
-        why.push('Options laid out are quicker to take in than an empty box.');
-      }
-      return why;
-    },
-  },
-  {
-    id: 'processing-pause',
-    title: 'Pause before replying',
-    summary: 'Take your time, with a time to come back.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self, _o, role) =>
-      role === 'listener' && self.receive.processingMinutes >= 10
-        ? [`You need about ${self.receive.processingMinutes} minutes before a reply feels right.`]
-        : [],
-  },
-  {
-    id: 'written-first',
-    title: 'Write it down first',
-    summary: 'Put it in writing, then talk about it.',
-    cost: 'medium',
-    regulation: false,
-    offline: true,
-    fits: (self) =>
-      self.receive.channel === 'written' ? ['You take things in best when you can read them first.'] : [],
-  },
-  {
-    id: 'spoken-first',
-    title: 'Say it out loud first',
-    summary: 'Talk it through, then write it down if you want a record.',
-    cost: 'medium',
-    regulation: false,
-    offline: true,
-    fits: (self) =>
-      self.receive.channel === 'spoken' ? ['You take things in best when you hear them.'] : [],
-  },
   {
     id: 'say-it-plainly',
     title: 'Say it plainly, then say what you hope for',
     summary: 'The words mean what they say. Then add what you would like to happen.',
-    cost: 'medium',
-    regulation: false,
-    offline: true,
-    fits: (self, other, role) =>
-      role === 'speaker' && other.receive.literalFirst
-        ? [`${other.name} takes words at face value first, so plain words will land as you mean them.`]
-        : [],
-  },
-  {
-    id: 'reason-with-ask',
-    title: 'Attach the reason',
-    summary: 'A request with its reason costs less to answer.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self, other, role) =>
-      role === 'speaker' && other.receive.needsReasonWithAsk
-        ? [`${other.name} answers asks more easily when they know why.`]
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('literal')
+        ? [`${o.name} says they take words at face value, so hints may pass them by.`]
         : [],
   },
   {
     id: 'say-how-it-is',
     title: 'Say how it is, not what to do',
     summary: '"I\'m hungry" leaves room to choose. "Make dinner" does not.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    // Fires on the listener's explicit low-demand setting, or on a shared neurotype.
-    // A neurotype the owner has not shared is never read for the other person's tools.
-    fits: (self, other, role) =>
-      role === 'speaker' && (other.receive.lowDemand || (other.shareNeurotypes && other.neurotypes.includes('pda')))
-        ? [`Requests that sound like orders can cost ${other.name} a lot to answer. A statement of how things are leaves room to choose.`]
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('demand')
+        ? [`${o.name} says being asked to do things can feel like pressure.`]
         : [],
   },
   {
-    id: 'say-the-unsaid',
-    title: 'Say the part you would normally leave out',
-    summary: 'Spell out what you mean, including what you hope they will understand without being told.',
-    cost: 'medium',
-    regulation: false,
-    offline: true,
-    fits: (self, other, role) =>
-      role === 'speaker' && self.receive.contextStyle === 'implied' && other.receive.contextStyle === 'explicit'
-        ? [`You tend to let context carry meaning. ${other.name} prefers it said outright.`]
+    id: 'name-the-tone',
+    title: 'Say how you mean it',
+    summary: 'Tone does not travel in text. Say it: "I\'m saying this calmly."',
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('tone')
+        ? [`${o.name} says they read tone more than words.`]
         : [],
   },
   {
-    id: 'lead-with-intent',
-    title: 'Lead with what you want to achieve',
-    summary: 'Open with your aim, then be as direct as you like.',
-    cost: 'medium',
-    regulation: false,
-    offline: true,
-    fits: (self, other, role) =>
-      role === 'speaker' && self.receive.directness === 'direct' && other.receive.directness === 'indirect'
-        ? [`You like to be direct. ${other.name} takes a lot from how a thing is approached.`]
+    id: 'say-what-it-isnt',
+    title: 'Say what this is not',
+    summary: 'Not anger, and not a verdict on them. Say so first.',
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('rejection')
+        ? [`${o.name} says they can hear criticism that is not there.`]
         : [],
   },
   {
-    id: 'check-the-phrase',
-    title: 'Check what a phrase means',
-    summary: 'Idioms and tone do not always cross languages. Ask what it meant to them.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self, other) => {
-      const a = self.languages[0];
-      const b = other.languages[0];
-      return a && b && a !== b
-        ? [`You mainly use different languages (${a} and ${b}), so a phrase can mean something different on each side.`]
-        : [];
+    id: 'keep-it-short',
+    title: 'One thing at a time',
+    summary: 'One point per message, and say when there is more to come.',
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('flood')
+        ? [`${o.name} says too much at once floods them.`]
+        : [],
+  },
+  {
+    id: 'use-their-words',
+    title: 'Use what they said they need to hear',
+    summary: 'In their own words.',
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.needToHear.trim() ? [`${o.name} wrote: "${o.needToHear.trim()}"`] : [],
+  },
+  {
+    id: 'read-how-they-write',
+    title: 'Read their replies the way they write them',
+    summary: 'A short reply may not mean what it seems.',
+    category: 'words',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.write.trim() ? [`${o.name} wrote: "${o.write.trim()}"`] : [],
+  },
+  {
+    id: 'menu-replies',
+    title: 'Tap a letter',
+    summary: 'Choose A, B or C instead of writing a reply.',
+    category: 'words',
+    fits: (s, _o, role, zone) => {
+      const why: string[] = [];
+      if (role !== 'listener') return why;
+      if (zone !== 'steady') why.push('Tapping a letter costs less than writing when you are running low.');
+      if (s.lenses.includes('flood')) why.push('You said too much at once floods you. A letter is enough.');
+      return why;
     },
   },
   {
-    id: 'their-love-language',
+    id: 'give-a-return-time',
+    title: 'Say when you will be back',
+    summary: 'A time means nobody is left guessing.',
+    category: 'connection',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('silence')
+        ? [`Quiet makes ${o.name} worry, they say.`]
+        : [],
+  },
+  {
+    id: 'show-care-their-way',
     title: 'Show care the way they feel it',
     summary: 'Say it in the form they take in most.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self, other, role) => {
-      if (role !== 'speaker') return [];
-      const given = topLoveLanguages(self.loveLanguages.given);
-      const received = topLoveLanguages(other.loveLanguages.received);
-      if (given.some((g) => received.includes(g))) return [];
-      return [
-        `You show care through ${given.map((g) => LOVE_LABEL[g]).join(' and ')}. ` +
-          `${other.name} feels it most through ${received.map((r) => LOVE_LABEL[r]).join(' and ')}.`,
-      ];
-    },
-  },
-  {
-    id: 'offer-what-helps',
-    title: 'Offer what helps them',
-    summary: 'In their own words.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self, other, role) =>
-      role === 'speaker'
-        ? sharedWorries(other).map((w) => `${other.name} said: "${w.whatHelps}"`)
+    category: 'connection',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.care.length > 0
+        ? [`${o.name} says care lands as: ${o.care.join('; ').toLowerCase()}.`]
         : [],
   },
   {
     id: 'side-by-side',
     title: 'Sit side by side',
-    summary: 'Do something alongside each other, no eye contact needed.',
-    cost: 'low',
-    regulation: false,
-    offline: true,
-    fits: (self) =>
-      self.connectionStyles.length > 0
-        ? [`You told us ${self.connectionStyles.join(' and ').replaceAll('-', ' ')} helps you connect.`]
+    summary: 'Do something alongside each other. No eye contact needed.',
+    category: 'connection',
+    fits: (s, o) => {
+      const why: string[] = [];
+      if (s.care.includes(SIDE_BY_SIDE)) why.push('You said time side by side lands as care.');
+      if (o.care.includes(SIDE_BY_SIDE)) why.push(`${o.name} says time side by side lands as care.`);
+      return why;
+    },
+  },
+  {
+    id: 'no-rush',
+    title: 'Say there is no rush',
+    summary: 'Room to answer in their own time.',
+    category: 'space',
+    fits: (_s, o, role) =>
+      role === 'speaker' && o.lenses.includes('time')
+        ? [`${o.name} says they need time before they answer.`]
         : [],
+  },
+  {
+    id: 'take-your-time',
+    title: 'Take your time, with a time to come back',
+    summary: 'You can answer later. Say when.',
+    category: 'space',
+    fits: (s, _o, role) =>
+      role === 'listener' && s.lenses.includes('time') ? ['You said you need time before you answer.'] : [],
   },
 ];
 
-const COST_ORDER: Record<Cost, number> = { low: 0, medium: 1, high: 2 };
-
 function recommend(
-  self: CommunicationProfile,
-  other: CommunicationProfile,
+  self: Person,
+  other: Person,
   role: Role,
   zone: Zone,
   maxTools: number,
 ): PersonRecommendations {
   const flooded = zone === 'flooded';
-  const scored: { tool: Tool; because: string[] }[] = [];
+  const found: Recommendation[] = [];
 
-  for (const tool of TOOLS) {
-    // Capacity removes options; it never adds encouragement.
-    if (flooded && !tool.regulation) continue;
-    if (zone === 'stretched' && tool.cost === 'high') continue;
-    const because = tool.fits(self, other, role);
-    if (because.length > 0) scored.push({ tool, because });
+  if (!flooded) {
+    for (const tool of TOOLS) {
+      const because = tool.fits(self.profile, other.profile, role, zone);
+      if (because.length > 0) {
+        found.push({ toolId: tool.id, title: tool.title, summary: tool.summary, category: tool.category, because });
+      }
+    }
+    found.sort((a, b) => b.because.length - a.because.length || a.toolId.localeCompare(b.toolId));
   }
 
-  if (flooded) {
-    // Orb and space are always offered when flooded, ahead of personalised resets.
-    for (const id of ['need-space', 'breathing-orb']) {
-      const tool = TOOLS.find((t) => t.id === id)!;
-      scored.push({ tool, because: ['Your body has hit its limit. Nothing else is needed from you right now.'] });
-    }
-  }
-
-  scored.sort((a, b) => {
-    if (flooded) {
-      const fixed = ['need-space', 'breathing-orb'];
-      const ai = fixed.indexOf(a.tool.id);
-      const bi = fixed.indexOf(b.tool.id);
-      if (ai !== bi) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-    }
-    return (
-      b.because.length - a.because.length ||
-      COST_ORDER[a.tool.cost] - COST_ORDER[b.tool.cost] ||
-      a.tool.id.localeCompare(b.tool.id)
-    );
-  });
-
-  return {
-    personId: self.personId,
-    flooded,
-    tools: scored.slice(0, maxTools).map(({ tool, because }) => ({
-      toolId: tool.id,
-      title: tool.title,
-      summary: tool.summary,
-      because,
-    })),
-  };
+  return { personId: self.id, flooded, tools: found.slice(0, maxTools) };
 }
 
 /**
- * Up to `maxTools` (default 3, as Vibe Check) tools for each person.
- * The speaker's tools read the listener's shared profile; the listener's read the speaker's.
+ * Communication tools for each person. The speaker's read the listener's profile
+ * and the listener's read the speaker's. Pass a large `maxTools` to get every fit,
+ * which is what the pathway builder does.
  */
 export function matchTools(ctx: MatchContext, maxTools = 3): [PersonRecommendations, PersonRecommendations] {
-  const zoneOf = (p: CommunicationProfile): Zone => ctx.zones[p.personId] ?? 'steady';
+  const zoneOf = (p: Person): Zone => ctx.zones[p.id] ?? 'steady';
   return [
     recommend(ctx.speaker, ctx.listener, 'speaker', zoneOf(ctx.speaker), maxTools),
     recommend(ctx.listener, ctx.speaker, 'listener', zoneOf(ctx.listener), maxTools),

@@ -1,96 +1,51 @@
-// Shared types for dYverge. Device-local records only; nothing here is sent anywhere.
+// Shared types for dYverge. These mirror the real app (dyverge-app.jsx) so the core
+// and the app cannot drift apart: a drift test reads the app file.
+// Device-local records only; nothing here is sent anywhere.
 
 export type PersonId = string;
 
 /** Check-In Gate zones. Skipped counts as steady. */
 export type Zone = 'steady' | 'stretched' | 'flooded';
 
-/** Only ever what the person selected themselves. Never inferred. */
-export type Neurotype =
-  | 'autistic'
-  | 'adhd'
-  | 'audhd'
-  | 'c-ptsd'
-  | 'pda'
-  | 'neurotypical'
-  | 'unsure';
+/** How a person says they receive messages. Each person picks their own. */
+export type LensId = 'literal' | 'tone' | 'demand' | 'rejection' | 'silence' | 'time' | 'flood';
 
-export type LoveLanguage = 'words' | 'acts' | 'gifts' | 'time' | 'touch';
-export type Rating = 1 | 2 | 3 | 4 | 5;
-export type Channel = 'spoken' | 'written' | 'voice-note' | 'either';
-export type Directness = 'direct' | 'indirect' | 'depends';
-export type ContextStyle = 'explicit' | 'implied' | 'depends';
-export type SensoryNeed =
-  | 'deep-pressure'
-  | 'low-light'
-  | 'quiet'
-  | 'movement'
-  | 'fidget'
-  | 'cold';
-export type ConnectionStyle = 'parallel-play' | 'body-doubling';
+export const LENS_IDS: readonly LensId[] = [
+  'literal',
+  'tone',
+  'demand',
+  'rejection',
+  'silence',
+  'time',
+  'flood',
+];
 
-export interface Worry {
-  id: string;
-  /** In the person's own words. */
-  text: string;
-  whatHelps?: string;
-  /** Only worries marked true are ever visible to the partner or used to match tools for them. */
-  shareWithPartner: boolean;
-}
+/** The five Vibe Check regulation profiles. Never scored. */
+export type VibeId = 'narrator' | 'lightning' | 'cocoon' | 'spark' | 'shapeshifter';
+
+/** A family of regulation tools: one kind of approach, not one tool. */
+export type Family = 'express' | 'move' | 'quiet' | 'shift' | 'choose';
 
 /**
- * One profile per person. Written only by its owner: every field is either
- * typed by them or accepted/edited from a proposal they chose to act on.
+ * One profile per person, written only by its owner. Same shape as the app.
+ * The app deliberately holds no diagnosis, so neither does the core.
  */
 export interface CommunicationProfile {
-  personId: PersonId;
   name: string;
   pronouns?: string;
-  /** BCP-47, e.g. "en-GB", "pt-BR". First entry of `languages` is the main one. */
-  locale: string;
-  languages: string[];
-  neurotypes: Neurotype[];
-  /** Neurotypes are private unless the owner says otherwise. Explicit, never defaulted by the app. */
-  shareNeurotypes: boolean;
-  receive: {
-    /** Self-chosen: requests phrased as orders cost more to answer than statements. */
-    lowDemand: boolean;
-    directness: Directness;
-    contextStyle: ContextStyle;
-    channel: Channel;
-    needsReasonWithAsk: boolean;
-    literalFirst: boolean;
-    processingMinutes: number;
-  };
-  needToHear: string[];
-  howIWrite: string[];
-  loveLanguages: {
-    given: Record<LoveLanguage, Rating>;
-    received: Record<LoveLanguage, Rating>;
-  };
-  worries: Worry[];
-  sensoryNeeds: SensoryNeed[];
-  connectionStyles: ConnectionStyle[];
-  updatedAt: string;
-  /** Where each field's current value came from. */
-  provenance: Partial<Record<ProfileFieldKey, 'self' | 'accepted-proposal' | 'edited-proposal'>>;
+  lenses: LensId[];
+  receiveNote: string;
+  /** What lands as care for them, from the app's fixed list. */
+  care: string[];
+  needToHear: string;
+  write: string;
 }
 
-/**
- * The fields an observation may propose changes to. `neurotypes`, `name` and
- * `pronouns` are deliberately absent: they can never be proposed, by type.
- */
-export type ProfileFieldKey =
-  | 'receive'
-  | 'needToHear'
-  | 'howIWrite'
-  | 'loveLanguages'
-  | 'worries'
-  | 'sensoryNeeds'
-  | 'connectionStyles'
-  | 'languages';
+/** The fields an observation may propose changes to. Name and pronouns never. */
+export type ProfileFieldKey = 'lenses' | 'receiveNote' | 'care' | 'needToHear' | 'write';
 
-export type GateOutcome = 'passed' | 'soft' | 'hard' | 'power';
+/** What the app's on-device gates return: null means nothing fired. */
+export type GateOutcome = 'soft' | 'hard' | 'power' | null;
 
 export interface Turn {
   id: string;

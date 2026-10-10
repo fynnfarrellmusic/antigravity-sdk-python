@@ -6,3 +6,4 @@ export * from './proposals.ts';
 export * from './language.ts';
 export * from './access.ts';
 export * from './routes.ts';
+export * from './pathways.ts';

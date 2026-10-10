@@ -253,21 +253,58 @@ self-selected dimensions, not assumptions about a culture or country.
 Support routes are per-locale and must be reviewed per country before a locale
 ships. UK only until then.
 
-## 11. Built so far: `dyverge-core/`
+## 11. Built so far: `dyverge-core/` and the app
 
-Framework-free TypeScript, no runtime dependencies, 24 tests passing.
+`dyverge-core/` is framework-free TypeScript, no runtime dependencies, 76 tests.
+It was rebased on 11 Oct onto the real app's data model (`lenses`, `care`,
+`receiveNote`, `needToHear`, `write`: no diagnosis, no ratings). The app is in
+`dyverge-app/dyverge-app.jsx`, committed first unmodified so every change is a clean diff.
 
 | Module | Does |
 |---|---|
-| `types.ts` | Profile, Sitdown, Turn, Observation, ProfileProposal. `neurotypes` can never be a proposal field (by type). |
-| `capacity.ts` | Battery to zone (steady 66-100, stretched 31-65, flooded 0-30, skipped is steady). No sit-down while either person is flooded. |
-| `matcher.ts` | Up to 3 tools per person, each with its reasons. Flooded means regulation tools only. A partner's worries are only used if shared. |
-| `session.ts` | Observations stop after a hard or power gate. Summaries stand only if both confirm. Delete your own words alone. |
-| `proposals.ts` | Observation to proposal after 3 sessions, only on the owner's own words. Declined proposals wait for 2 new sessions. |
-| `language.ts` | Lints copy against the handoff's banned words. |
+| `types.ts` | The app's profile, lenses, zones, Vibe profiles and families; sit-down, observation and proposal records. |
+| `capacity.ts` | Battery to zone. No sit-down while either person is flooded. |
+| `matcher.ts` | Communication tools from each person's own lenses and words. Every tip carries the reason it fired, and only restates what they wrote. |
+| `pathways.ts` | **The plural-pathways rule.** Enforced on every set it builds. Inlined into the app by `scripts/build-app.ts`. |
+| `session.ts`, `proposals.ts`, `routes.ts`, `language.ts`, `access.ts` | As described earlier: sit-down rules, proposals, reviewed routes by locale, copy lint, restricted modules. |
 
-Not built: UI, storage, the gate runner (it belongs to the Compass), the
-Anthropic call, voice notes. These need the React app's code.
+Not built: the sit-down UI, the per-person vault, the gate runner for other languages,
+partner sync, the facilitator call.
+
+## 13. Never one approach (11 Oct 2026)
+
+Principle, from Fynn: whatever the app assesses, it always offers several pathways and
+never assumes one approach or technique will work.
+
+What "several" means, because the handoff also says the interface removes options as
+capacity drops: **different kinds of help, not a longer list.** A flooded person gets
+few options, but never one kind. The rule, enforced in code and tested:
+
+- at least 3 pathways, from at least 3 categories (regulation families, space, words,
+  connection, learn, person, professional);
+- any regulation help comes from at least 2 different families (express, move, quiet,
+  shift, choose);
+- a person is always on offer (support routes where reviewed, someone you trust,
+  people who have been there);
+- there is always a way to say "none of these feel right", and that counts as an answer;
+- nothing is ranked or called best, presentation order is fixed, and copy is linted for
+  promises ("cure", "guaranteed", "the only way", "you must");
+- a professional pathway offers several kinds together (a doctor, relationship support,
+  one-to-one support, neurodivergence support) and is **restricted** until clinical and
+  legal review. It ships off.
+
+Learning without collapsing: "Did that help?" (yes, a bit, no, not sure) only reorders
+what is shown. A "no" moves a tool down within its family. It never removes a family,
+and the person's own Vibe family always stays in their set, because it is their
+starting point, not a verdict.
+
+Changes made in the app: Sanctuary shows three cards from at least two families
+(Cocoon was weight, sound off, lights; it is now weight, sound off, ask your body); the
+Vibe result adds a second family and says it is not a verdict; the support sheet lists
+other kinds of support beside the phone numbers; and the Compass is asked for the
+likeliest reading plus one other, never a single certain explanation.
+
+Not claimed: that any one pathway works. The app offers; the person decides.
 
 ## 12. Restricted modules and the internal pre-review (11 Oct 2026)
 
