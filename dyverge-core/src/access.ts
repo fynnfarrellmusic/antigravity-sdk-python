@@ -15,6 +15,7 @@ export type ModuleId =
   | 'sitdown-facilitator'
   | 'observation-drafting'
   | 'profile-proposals'
+  | 'pathway-signposting'
   | 'screening';
 
 export type Review = 'clinical' | 'legal';
@@ -45,6 +46,12 @@ export const RESTRICTED_MODULES: readonly ModuleInfo[] = [
     title: 'Profile proposals',
     needsReview: ['clinical'],
     why: 'Proposes changes to a person’s own profile. Wording could act as a label.',
+  },
+  {
+    id: 'pathway-signposting',
+    title: 'Professional pathways',
+    needsReview: ['clinical', 'legal'],
+    why: 'Points people toward kinds of professional help. The list and wording need a clinician, and claims need a lawyer.',
   },
   {
     id: 'screening',
