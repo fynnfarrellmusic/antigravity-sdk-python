@@ -1,0 +1,59 @@
+# dYverge: clinical review pack
+
+For a clinician experienced in couples work, neurodivergence and trauma.
+Purpose: sign-off, or changes, on the sit-down and profile module before any
+real couple uses it. Nothing here has been reviewed. Source: `sitdown-and-profiles-spec.md`.
+
+## What the module does, in one paragraph
+
+Two people share one phone. Each checks their own energy first. An AI facilitator
+helps them through a conversation: reflecting what happened and what fear was layered
+on top, offering reply options, and suggesting communication tools matched to each
+person's own profile. Over many sessions it drafts private observations and may
+*propose* profile updates to the person they are about. Frame throughout: two
+different operating systems meeting (Double Empathy Problem), never one person wrong.
+
+## Please decide
+
+**A. Scope and contraindications**
+1. Which presentations make a shared-device session unsafe or inappropriate
+   (coercive control, active violence, active substance misuse, others)?
+2. What must each person complete *separately* before a joint session is offered?
+   A screening module is called for but has not been written. Please specify its
+   content, or name an existing validated instrument the app may reference.
+3. How should a session end if one person may be guarded or constrained? The
+   current design offers either person a private "pause without saying why".
+
+**B. Facilitation**
+4. Review the facilitator stance and the draft system prompt (spec section 7).
+5. Is "signal / noise" (what happened vs. the fear layered on top, owned as nervous
+   system) safe to reflect aloud to a *couple*, or only in a single-person step?
+6. Should the facilitator ever name a pattern between two people, or only reflect
+   each person's own words?
+
+**C. Profiles and assessment**
+7. Review the profile fields and tool catalogue (`dyverge-core/src/matcher.ts`,
+   16 tools, each with its rule and plain-language reason). Which tools, rules or
+   wordings could harm, mislead, or be used against a partner?
+8. The rule "a pattern needs 3 sessions before it is proposed": reasonable? Too low?
+9. Proposals reach the owner only, with accept, edit, decline or unsure. Could a
+   proposal wording itself act as a label or a self-fulfilling description?
+10. Neurotype is only what the person selected. The app never infers it. Confirm
+    this is the right line, and review the option list.
+11. Worries and what-helps are shared with the partner only if the owner marks them.
+    Is opt-in per item the right granularity?
+
+**D. Crisis and handoffs**
+12. Review the hard-gate language list and the line "This isn't a tool for this
+    moment, and you deserve a person." Add or remove terms.
+13. Review the soft-gate (attrition and endurance language) question: "The tool, or
+    a person?"
+14. Support routes by country for any locale beyond the UK.
+
+**E. Positioning**
+15. Where is the honest line between "therapeutically informed" and "therapy" for
+    this product, in your professional judgement?
+
+## Out of scope for this review
+
+Visual design, storage, anything to do with the Compass translation itself.

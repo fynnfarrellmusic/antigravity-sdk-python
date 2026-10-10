@@ -1,7 +1,9 @@
-# couplesTherapY: module spec (draft 1)
+# dYverge: sit-down and profile module spec (draft 2)
 
-Status: draft for Fynn's decision. Built from the dYverge Handoff (10 Oct 2026).
-Nothing here is built yet. Section 8 lists the calls that are yours to make.
+Status: draft 2, 11 Oct 2026. Built from the dYverge Handoff (10 Oct 2026).
+The name stays dYverge: this is a module of the app, not a separate product.
+"couplesTherapY" was a working title and is retired. Decisions made are in section 8.
+Built so far: the framework-free logic in `dyverge-core/` (see section 11).
 
 ## 1. What it is
 
@@ -16,7 +18,7 @@ facilitates a whole conversation, and remembers across conversations.
 
 | Handoff rule | What it means for this module |
 |---|---|
-| "dYverge is not therapy, not a crisis service" (persistent Settings line) | The name couplesTherapY promises therapy. Needs a decision (section 8, Q1). Until then it is a guided practice space, never therapy. |
+| "dYverge is not therapy, not a crisis service" (persistent Settings line) | Stays true until clinical and legal review say otherwise. It is a guided practice space. See section 10. |
 | A profile is only ever edited by its owner | The AI **cannot** write "character profiles". It can only *propose*, to the owner alone. Sections 4 and 5. |
 | De-pathologising: two operating systems, never one broken person | No labels, no "traits", no diagnoses, no "your partner's X". |
 | No charts or percentages anywhere; no scoreboards | Profiles are plain sentences with evidence. No scores, rankings, or comparisons between the two people. |
@@ -177,20 +179,28 @@ If either person's words hit crisis language, stop and say: "This isn't a
 tool for this moment, and you deserve a person." Nothing else.
 ```
 
-## 8. Decisions that are yours
+## 8. Decisions
 
-1. **The name.** The handoff says dYverge is "not therapy" in a line that can't
-   be hidden. couplesTherapY promises therapy. Options: keep the name and make it
-   a clearly separate product with its own disclaimers (suite naming allows it:
-   settlYl, rYse), or keep the module inside dYverge with a plainer in-app name.
-   *Recommend the second.*
-2. **Where it lives.** dYverge is a React app, not in this repo. This repo is a
-   Python SDK. I'd build it as TypeScript inside the React app. The SDK is only
-   useful if you add a backend, which would break local-first.
-3. **One device or two.** *Recommend one device first.*
-4. **Safety screening content.** Needs a clinician and a lawyer.
-5. **Profile proposals vs "character profiles".** I've reframed to proposals the
-   owner decides on. Confirm that's the intention.
+Made (Fynn, 11 Oct 2026):
+
+1. **Name:** dYverge. The module is part of the app.
+2. **Where it lives:** TypeScript inside the React app, local-first. The Python
+   SDK is not used. `dyverge-core/` is framework-free so it drops into `src/core/`.
+3. **Device:** one device, passed between two people. Built for people who
+   communicate differently across neurotype, culture and language.
+4. **Review:** both clinical and legal review are needed. Briefing packs are in
+   `review-pack-clinical.md` and `review-pack-legal.md`. Neither review has happened.
+5. **Profiles:** each person gets a communication profile (love languages,
+   neurotype, how they receive and write, anxieties, sensory needs). Not a
+   "character" file. See section 10.
+
+Still open:
+
+- **The "not therapy" line.** See section 10. This is the one that most needs your
+  call, and it depends on the legal pack's answers.
+- **In-app name for the module.** Working title: "Sit-down".
+- Every open question already listed in the handoff (partner sync, which engine
+  translates, support routes outside the UK, and the rest).
 
 ## 9. Build order
 
@@ -200,3 +210,61 @@ tool for this moment, and you deserve a person." Nothing else.
 4. Observation drafting, then the private proposal screen.
 5. Timeline of "what shifted" in the Us screen.
 6. Two-device sync (depends on the open Partner-sync question).
+
+## 10. Meeting people where they are, and therapist-grade attention
+
+The goal: assess each person well enough to hand them the tools that actually
+suit them, without the app claiming to be something it is not.
+
+**What "assess" means here.** Three sources, in order of authority:
+
+1. **Self-description**: onboarding and Vibe Check, in menu form. The person's
+   own choices. Authoritative.
+2. **Context at the time**: battery zone and spoon level, today. Always fresh,
+   never accumulated into a score.
+3. **Observed patterns across sit-downs**: only ever proposed, never applied
+   (section 4), only after 3 sessions.
+
+**Why this is deterministic where it can be.** Tool matching
+(`dyverge-core/src/matcher.ts`) is rules over the profile and current capacity,
+with a plain-language reason attached to every recommendation. It runs offline,
+can be tested, can be reviewed by a clinician line by line, and cannot drift.
+The model is used for language and for drafting observations, not for deciding
+which tool you get.
+
+**Where the line is.** The app can be therapeutically informed: it uses
+established frameworks, reflects patterns back, teaches skills and keeps
+continuity across sessions. It must not diagnose, treat, or present itself as a
+therapist. I recommend keeping the Settings line, reworded to say what it is:
+a guided practice space, not a replacement for a therapist or a crisis service.
+Reasons, not caution for its own sake:
+
+- the handoff's own gates and Safety stop assume a tool that hands off to a person;
+- couples work is contraindicated where there is coercive control, which the app
+  cannot rule out from inside a shared session;
+- jurisdictions differ on AI that presents as therapy (see the legal pack).
+
+If clinical and legal review both clear a stronger position, the line can change.
+It should change on their sign-off, not on ours.
+
+**Across borders.** Profiles carry locale and languages. `check-the-phrase`
+fires when main languages differ. Directness and context style are
+self-selected dimensions, not assumptions about a culture or country.
+Support routes are per-locale and must be reviewed per country before a locale
+ships. UK only until then.
+
+## 11. Built so far: `dyverge-core/`
+
+Framework-free TypeScript, no runtime dependencies, 24 tests passing.
+
+| Module | Does |
+|---|---|
+| `types.ts` | Profile, Sitdown, Turn, Observation, ProfileProposal. `neurotypes` can never be a proposal field (by type). |
+| `capacity.ts` | Battery to zone (steady 66-100, stretched 31-65, flooded 0-30, skipped is steady). No sit-down while either person is flooded. |
+| `matcher.ts` | Up to 3 tools per person, each with its reasons. Flooded means regulation tools only. A partner's worries are only used if shared. |
+| `session.ts` | Observations stop after a hard or power gate. Summaries stand only if both confirm. Delete your own words alone. |
+| `proposals.ts` | Observation to proposal after 3 sessions, only on the owner's own words. Declined proposals wait for 2 new sessions. |
+| `language.ts` | Lints copy against the handoff's banned words. |
+
+Not built: UI, storage, the gate runner (it belongs to the Compass), the
+Anthropic call, voice notes. These need the React app's code.

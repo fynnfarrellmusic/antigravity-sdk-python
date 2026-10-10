@@ -1,0 +1,15 @@
+{
+  "name": "@dyverge/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-free logic for dYverge: profiles, capacity zones, tool matching, proposals, copy lint.",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "node --test \"test/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2"
+  }
+}
