@@ -298,11 +298,52 @@ describe('moving older plain-text data into the vault', () => {
 });
 
 describe('storage that is blocked', () => {
-  it('falls back to memory, so the app still works', () => {
+  it('falls back to memory, so the app still works, and says nothing is kept', () => {
     const s = browserStore();
+    assert.equal(s.persistent, false);
     s.set('a', '1');
     assert.equal(s.get('a'), '1');
     s.remove('a');
     assert.equal(s.get('a'), null);
+  });
+
+  it('is one store for every screen, so two people on the page see the same things', () => {
+    const one = browserStore();
+    const two = browserStore();
+    one.set('dyverge:published:x', 'hello');
+    assert.equal(two.get('dyverge:published:x'), 'hello');
+    assert.deepEqual(two.keys().filter((k) => k.startsWith('dyverge:published')), ['dyverge:published:x']);
+    one.remove('dyverge:published:x');
+    assert.equal(two.get('dyverge:published:x'), null);
+  });
+
+  it('writes straight through to localStorage when the browser allows it', () => {
+    class FakeStorage {
+      [key: string]: unknown;
+      getItem(k: string): string | null {
+        return Object.prototype.hasOwnProperty.call(this, k) ? (this[k] as string) : null;
+      }
+      setItem(k: string, v: string): void {
+        this[k] = String(v);
+      }
+      removeItem(k: string): void {
+        delete this[k];
+      }
+    }
+    const real = new FakeStorage();
+    const original = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+    Object.defineProperty(globalThis, 'localStorage', { value: real, configurable: true });
+    try {
+      const s = browserStore();
+      assert.equal(s.persistent, true);
+      s.set('k', 'v');
+      assert.equal(real.getItem('k'), 'v');
+      assert.deepEqual(s.keys(), ['k'], 'the probe key is gone');
+      s.remove('k');
+      assert.equal(real.getItem('k'), null);
+    } finally {
+      if (original) Object.defineProperty(globalThis, 'localStorage', original);
+      else delete (globalThis as { localStorage?: unknown }).localStorage;
+    }
   });
 });

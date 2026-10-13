@@ -22,6 +22,8 @@ export interface KeyValueStore {
   set(key: string, value: string): void;
   remove(key: string): void;
   keys(): string[];
+  /** False when nothing is saved on the device: it lasts only until the page is closed or refreshed. */
+  persistent?: boolean;
 }
 
 export function memoryStore(): KeyValueStore {
@@ -31,10 +33,18 @@ export function memoryStore(): KeyValueStore {
     set: (k, v) => void m.set(k, v),
     remove: (k) => void m.delete(k),
     keys: () => [...m.keys()],
+    persistent: false,
   };
 }
 
-/** localStorage, or memory if storage is blocked (a private window), so the app still works. */
+let sharedMemory: KeyValueStore | null = null;
+
+/**
+ * localStorage, or one shared in-memory store if the browser won't let this page save (a private
+ * window, or a sandboxed viewer), so the app still works. Shared on purpose: every screen has to
+ * see the same data, or two people passing the page between them could never see each other's
+ * published things. `persistent` says which one it is, so the app can tell people nothing is kept.
+ */
 export function browserStore(): KeyValueStore {
   try {
     const ls = globalThis.localStorage;
@@ -45,9 +55,11 @@ export function browserStore(): KeyValueStore {
       set: (k, v) => ls.setItem(k, v),
       remove: (k) => ls.removeItem(k),
       keys: () => Object.keys(ls),
+      persistent: true,
     };
   } catch (e) {
-    return memoryStore();
+    if (!sharedMemory) sharedMemory = memoryStore();
+    return sharedMemory;
   }
 }
 

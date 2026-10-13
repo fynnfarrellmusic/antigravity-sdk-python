@@ -123,14 +123,26 @@ async function fresh(vibe, history, opts = {}) {
     if (m.text().startsWith('[storage]')) storageLog.push(`${new Date().toISOString().slice(11, 23)} ${m.text().slice(10)}`);
     if (storageLog.length > 60) storageLog.shift();
   });
+  // A page whose storage is blocked (a sandboxed viewer) is made before anything else looks at storage.
+  if (opts.blockStorage) {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, 'localStorage', {
+        configurable: true,
+        get() {
+          throw new DOMException("Failed to read the 'localStorage' property from 'Window': The document is sandboxed and lacks the 'allow-same-origin' flag.", 'SecurityError');
+        },
+      });
+    });
+  }
   await page.addInitScript(() => {
     const note = (...a) => console.log('[storage]', ...a);
-    note('page starts with', Object.keys(localStorage).length, 'keys');
-    window.addEventListener('pagehide', () => note('page ends with', Object.keys(localStorage).length, 'keys'));
+    const count = () => { try { return Object.keys(localStorage).length; } catch (e) { return 'blocked'; } };
+    note('page starts with', count(), 'keys');
+    window.addEventListener('pagehide', () => note('page ends with', count(), 'keys'));
     for (const method of ['clear', 'removeItem']) {
       const original = Storage.prototype[method];
       Storage.prototype[method] = function (...args) {
-        if (method === 'clear' || !String(args[0]).startsWith('dyverge:vault:')) note(method, JSON.stringify(args).slice(0, 60), '->', Object.keys(localStorage).length, 'keys before');
+        if (method === 'clear' || !String(args[0]).startsWith('dyverge:vault:')) note(method, JSON.stringify(args).slice(0, 60), '->', count(), 'keys before');
         return original.apply(this, args);
       };
     }
@@ -144,13 +156,14 @@ async function fresh(vibe, history, opts = {}) {
   // script removes as it goes, so a later reload can never re-seed (and wipe what the test saved).
   await page.addInitScript(([v, h]) => {
     if (location.hash !== '#seed') return;
+    try { localStorage.length; } catch (e) { return; } // blocked storage: nothing to seed
     localStorage.clear();
     if (v) localStorage.setItem('dyverge:vibe', JSON.stringify(v));
     if (h) localStorage.setItem('dyverge:toolLog', JSON.stringify(h));
     history.replaceState(null, '', location.pathname + location.search);
   }, [vibe, history]);
   await page.goto(`${pathToFileURL(join(dir, 'index.html')).href}#seed`);
-  if (!opts.raw) await makeSpace(page);
+  if (!opts.raw && !opts.blockStorage) await makeSpace(page);
   return page;
 }
 
@@ -625,6 +638,39 @@ await scenario(async () => {
   await page.getByRole('button', { name: /go in/i }).first().click();
   await page.getByRole('button', { name: /^Us$/ }).click();
   assert.match(await bodyText(page), /An example, so you can see how a profile reads/, 'with no other person, the labelled example returns');
+  await page.context().close();
+});
+
+// A viewer that blocks storage (a private window, or a sandboxed page). Nothing can be saved, the
+// page says so, and two people passing the page between them still see each other's shared things.
+await scenario(async () => {
+  const page = await fresh(null, undefined, { raw: true, blockStorage: true });
+  assert.match(await bodyText(page), /This page isn't allowed to save anything on your device/, 'the create screen says nothing will be kept');
+  await makeSpace(page, 'correct horse battery', 'Alex');
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Add the other person' }).click();
+  await page.getByRole('button', { name: 'Lock and pass it over' }).click();
+  await page.locator('#vs-name').waitFor();
+  assert.match(await bodyText(page), /This page isn't allowed to save anything on your device/, "and so does the second person's");
+  await makeSpace(page, 'purple lantern marsh', 'Sam');
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: /^Us$/ }).click();
+  await page.getByRole('button', { name: 'Edit' }).click();
+  await page.locator('#pf-need').fill('Plain words, and when to expect a reply.');
+  await page.getByRole('button', { name: 'Save' }).click();
+  await page.getByRole('button', { name: /^Share with Alex$/ }).click();
+  await page.getByRole('button', { name: 'Home', exact: true }).click();
+  await page.getByRole('button', { name: 'Lock your private space' }).click();
+  await page.getByRole('button', { name: 'Alex' }).click();
+  await page.locator('#us-pass').fill('correct horse battery');
+  await page.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: /go in/i }).first().waitFor();
+  await page.getByRole('button', { name: /go in/i }).first().click();
+  await page.getByRole('button', { name: /^Us$/ }).click();
+  assert.match(await bodyText(page), /Plain words, and when to expect a reply\./, "Alex sees what Sam shared, even though nothing is saved");
+  await page.reload();
+  assert.match(await bodyText(page), /Make your private space\./, 'a refresh starts again, because nothing was kept');
   await page.context().close();
 });
 

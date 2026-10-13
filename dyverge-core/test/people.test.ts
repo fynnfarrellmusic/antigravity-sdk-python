@@ -6,6 +6,7 @@ import {
   MAX_PEOPLE,
   addPerson,
   bootstrapPeople,
+  browserStore,
   classifyKey,
   cleanName,
   createVault,
@@ -287,5 +288,22 @@ describe('what is open, shared or private, now with people', () => {
     assert.equal(classifyKey('profile'), 'private');
     assert.equal(classifyKey('voiceSeen'), 'private');
     assert.equal(classifyKey('shareSpoons'), 'private');
+  });
+});
+
+describe('two people on a page that cannot save', () => {
+  it('lets each person see what the other published, because every screen shares one store', () => {
+    const mine = browserStore();
+    const theirs = browserStore();
+    assert.equal(mine.persistent, false);
+    addPerson(mine, { id: 'blocked-ann', name: 'Ann' });
+    addPerson(mine, { id: 'blocked-ben', name: 'Ben' });
+    publishProfile(mine, 'blocked-ann', { name: 'Ann', needToHear: 'Plain words.' }, 1);
+    assert.deepEqual(readPeople(theirs).map((p) => p.id), ['blocked-ann', 'blocked-ben']);
+    assert.equal(readPublishedProfile(theirs, 'blocked-ann')?.profile.needToHear, 'Plain words.');
+    removeSharedTraces(mine, 'blocked-ann');
+    removePerson(mine, 'blocked-ann');
+    removePerson(mine, 'blocked-ben');
+    assert.deepEqual(readPeople(theirs), []);
   });
 });

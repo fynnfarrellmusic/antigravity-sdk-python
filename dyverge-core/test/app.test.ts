@@ -75,6 +75,19 @@ describe('the app and the core stay in step', () => {
     assert.match(persist, /try \{ vault\.put\(key, value\)/, 'a write that lands just after locking cannot crash the screen');
   });
 
+  it('keeps every screen on one page store, so blocked storage still lets two people see each other', () => {
+    const app = appSource();
+    const helpers = app.slice(app.indexOf('const NS = "dyverge:";'), app.indexOf('const VaultContext'));
+    assert.match(helpers, /const appStore = \(\) => \(pageStore \|\| \(pageStore = browserStore\(\)\)\);/);
+    assert.doesNotMatch(app, /window\.localStorage/, 'nothing talks to localStorage behind the store');
+  });
+
+  it('tells people when nothing can be saved, on the screen where they make a private space', () => {
+    const app = appSource();
+    assert.match(app, /store\.persistent === false/);
+    assert.match(app, /This page isn't allowed to save anything on your device, so your private space only lasts until you close or refresh it\./);
+  });
+
   it('keeps shared things in memory only when using the app without saving', () => {
     const app = appSource();
     assert.match(app, /const memoryOnly = Boolean\(vault && vault\.ephemeral && kind === "shared"\);/);

@@ -97,16 +97,20 @@ const CSS = `
 // ─────────────────────────────────────────────────────────────────────────────
 
 const NS = "dyverge:";
+// One store for the whole page: localStorage, or one shared in-memory store when the browser won't
+// let this page save (see browserStore). Looked up once, on first use.
+let pageStore = null;
+const appStore = () => (pageStore || (pageStore = browserStore()));
 function load(key, fallback) {
   try {
-    const raw = window.localStorage.getItem(NS + key);
+    const raw = appStore().get(NS + key);
     return raw ? JSON.parse(raw) : fallback;
   } catch (e) {
     return fallback;
   }
 }
 function save(key, value) {
-  try { window.localStorage.setItem(NS + key, JSON.stringify(value)); } catch (e) { /* storage unavailable */ }
+  try { appStore().set(NS + key, JSON.stringify(value)); } catch (e) { /* storage unavailable */ }
 }
 // The unlocked vault of whoever is using the app. Private keys live in it, encrypted.
 // classifyKey() decides: anything not named shared or open is private (default-deny).
@@ -159,10 +163,18 @@ function memoryStore(){
     set: (k, v) => void m.set(k, v),
     remove: (k) => void m.delete(k),
     keys: () => [...m.keys()],
+    persistent: false,
   };
 }
 
-/** localStorage, or memory if storage is blocked (a private window), so the app still works. */
+let sharedMemory = null;
+
+/**
+ * localStorage, or one shared in-memory store if the browser won't let this page save (a private
+ * window, or a sandboxed viewer), so the app still works. Shared on purpose: every screen has to
+ * see the same data, or two people passing the page between them could never see each other's
+ * published things. `persistent` says which one it is, so the app can tell people nothing is kept.
+ */
 function browserStore(){
   try {
     const ls = globalThis.localStorage;
@@ -173,9 +185,11 @@ function browserStore(){
       set: (k, v) => ls.setItem(k, v),
       remove: (k) => ls.removeItem(k),
       keys: () => Object.keys(ls),
+      persistent: true,
     };
   } catch (e) {
-    return memoryStore();
+    if (!sharedMemory) sharedMemory = memoryStore();
+    return sharedMemory;
   }
 }
 
@@ -3655,6 +3669,9 @@ function CreateSpace({ store, mode, onOpen, onCancel }) {
           <p style={{ ...T.bodyL, color: C.ink, margin: "16px 0 8px" }}>This one is yours. The person who handed you the phone can't read what you keep here, and you can't read theirs. Only what you choose to share crosses over.</p>
         ) : (
           <p style={{ ...T.bodyL, color: C.ink, margin: "16px 0 8px" }}>Your profile, readings, check-ins and spoons are locked with a passphrase only you know. The other person can't read them, even on this phone. Only what you choose to share crosses over.</p>
+        )}
+        {store.persistent === false && (
+          <p role="note" style={{ ...T.body, color: C.ink, marginBottom: 8 }}>This page isn't allowed to save anything on your device, so your private space only lasts until you close or refresh it. Open dYverge in your browser's own tab to keep it between visits.</p>
         )}
         {legacy && <p style={{ ...T.body, color: C.soft, marginBottom: 8 }}>There are things saved on this phone from before. They'll move into your private space.</p>}
         <div style={{ marginTop: 24 }}>

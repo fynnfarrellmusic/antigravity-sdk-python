@@ -392,3 +392,9 @@ by the owner's passphrase, and the app says so where they are shared. A name is 
 before the passphrase becomes a key (so a third person is refused at once). If the app is closed in
 that moment, the name is dropped the next time it opens, so the lock screen never shows someone who
 cannot get in (`pruneUnfinished`).
+
+**When the browser will not let the page save** (a private window, or a sandboxed viewer), everything
+lives in one shared in-memory store for the page. Two people can still pass the page between them and
+see what the other shared, until it is closed or refreshed, and the create screen says plainly that
+nothing is kept. This was found while preparing the app for hands-on testing: before it, each screen got
+its own empty store, so a second person could not see the first at all and nothing said why.
