@@ -17,6 +17,7 @@ export interface Block {
 export const BLOCKS: readonly Block[] = [
   { name: 'vault', src: 'src/vault.ts' },
   { name: 'people', src: 'src/people.ts' },
+  { name: 'fieldnotes', src: 'src/fieldnotes.ts' },
   { name: 'gates', src: 'src/gates.ts' },
   { name: 'pathways', src: 'src/pathways.ts' },
 ];

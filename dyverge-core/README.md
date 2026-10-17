@@ -80,14 +80,15 @@ other failure, or a second loss, stops the run at once with the page's storage n
 finding A19 in `docs/dyverge/internal-prechecks.md`). To check that a test fails when it should,
 break a copy of the app and run `DYVERGE_APP_FILE=/path/to/copy.jsx npm run smoke`.
 
-Four generated blocks are inlined: `vault`, `people`, `gates` and `pathways`.
+Five generated blocks are inlined: `vault`, `people`, `fieldnotes`, `gates` and `pathways`.
 
-Switches in the app, both enforced by tests:
+Switches in the app, all enforced by tests:
 
 | Switch | Ships as | Meaning |
 |---|---|---|
 | `PATHWAYS_PROFESSIONAL` | `false` | Kinds of professional help are hidden until clinical and legal review. |
 | `GATE_DRAFT_LANGUAGES` | `true` | The nine draft gate languages are used, with a notice. `false` declines everything but English. |
+| `PRACTICE_RUN` | `true` | The practice run: field notes a person writes and chooses to share, and a screen for reading two people's notes together. Nothing in it sends or keeps anything on its own. `false` takes its card out of Settings. |
 
 ## Other modules
 
@@ -96,7 +97,8 @@ Switches in the app, both enforced by tests:
 | `capacity.ts` | Battery to zone. No sit-down while either person is flooded. |
 | `matcher.ts` | Communication tools from each person's own lenses and words, each with its reason. |
 | `gates.ts` | Safety gates in English plus nine draft languages, run on every text. A hard hit always stops. Languages with no gates are declined. `assessText(text, { allowDrafts })`. |
-| `vault.ts` | Per-person encrypted private spaces. `classifyKey` decides what is private, shared or open (default-deny). `createVault`, `openVault`, `ephemeralVault`, `migrateLegacy`. |
+| `vault.ts` | Per-person encrypted private spaces. `classifyKey` decides what is private, shared or open (default-deny). `createVault`, `openVault`, `ephemeralVault`, `migrateLegacy`, and `lockText`/`unlockText` to lock a file with a passphrase. |
+| `fieldnotes.ts` | The practice run: private field notes, `buildPack` (an allow-list of exactly what can be shared), the identifying-details check, a strict `parsePack`, and reading two packs together (`comparePrompt`, `parseComparison`, `localComparison`). Never sends or saves anything. |
 | `people.ts` | Who is on the phone (two at most), and what crosses between them: names, a published profile and spoon level (allow-listed fields only), and the agreement with one signature each. |
 | `pathways.ts` | The plural-pathways rule: at least 3 kinds of help, at least 2 regulation families, always a person, always a way to say none fit. |
 | `session.ts` | Observations stop after a hard or power gate. Summaries need both people. Delete your own words alone. |

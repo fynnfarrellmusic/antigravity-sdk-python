@@ -8,9 +8,12 @@ import {
   createVault,
   ephemeralVault,
   hasLegacyData,
+  isLockedText,
+  lockText,
   memoryStore,
   migrateLegacy,
   openVault,
+  unlockText,
   vaultExists,
 } from '../src/index.ts';
 
@@ -345,5 +348,54 @@ describe('storage that is blocked', () => {
       if (original) Object.defineProperty(globalThis, 'localStorage', original);
       else delete (globalThis as { localStorage?: unknown }).localStorage;
     }
+  });
+});
+
+describe('locking a piece of text with a passphrase', () => {
+  const SECRET = 'Plain words helped. Meet at the usual place.';
+
+  it('round-trips, and the locked text does not contain the words', async () => {
+    const locked = await lockText(PASS, SECRET, FAST);
+    assert.equal(isLockedText(locked), true);
+    assert.doesNotMatch(locked, /Plain words|usual place/);
+    assert.equal(await unlockText(PASS, locked), SECRET);
+    assert.equal(await unlockText(PASS, `  \n${locked}\n `), SECRET, 'a pasted message with spare space around it still opens');
+  });
+
+  it('refuses a wrong passphrase, a damaged file, and anything that is not a locked file', async () => {
+    const locked = await lockText(PASS, SECRET, FAST);
+    assert.equal(await unlockText('not the passphrase', locked), null);
+    const parts = locked.split('.');
+    assert.equal(await unlockText(PASS, [parts[0], parts[1], parts[2], parts[3]!.slice(0, -6) + 'AAAAAA'].join('.')), null, 'tampered');
+    assert.equal(await unlockText(PASS, locked.slice(0, locked.length - 10)), null, 'cut short');
+    assert.equal(await unlockText(PASS, 'hello'), null);
+    assert.equal(await unlockText(PASS, ''), null);
+    assert.equal(isLockedText('{"kind": "dyverge-practice-run-notes"}'), false);
+  });
+
+  it('needs a passphrase of the same minimum length as a private space', async () => {
+    await assert.rejects(() => lockText('short', SECRET, FAST), RangeError);
+  });
+
+  it('uses a fresh salt and IV every time, so two locks of the same words differ', async () => {
+    const one = await lockText(PASS, SECRET, FAST);
+    const two = await lockText(PASS, SECRET, FAST);
+    assert.notEqual(one, two);
+    assert.equal(await unlockText(PASS, one), SECRET);
+    assert.equal(await unlockText(PASS, two), SECRET);
+  });
+
+  it('treats the same typed characters the same way, from different keyboards', async () => {
+    const locked = await lockText('fish99 lantern', SECRET, FAST);
+    assert.equal(await unlockText('ｆｉｓｈ９９ lantern', locked), SECRET, 'full-width characters give the same key');
+  });
+
+  it('will not do an absurd amount of work because a file asks it to', async () => {
+    const locked = await lockText(PASS, SECRET, FAST);
+    const parts = locked.slice('DYVERGE-LOCKED-1:'.length).split('.');
+    const started = Date.now();
+    assert.equal(await unlockText(PASS, `DYVERGE-LOCKED-1:999999999.${parts.slice(1).join('.')}`), null);
+    assert.equal(await unlockText(PASS, `DYVERGE-LOCKED-1:5.${parts.slice(1).join('.')}`), null);
+    assert.ok(Date.now() - started < 2000, 'refused at once');
   });
 });

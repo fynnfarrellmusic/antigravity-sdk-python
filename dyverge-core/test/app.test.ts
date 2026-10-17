@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { applyAll } from '../scripts/build-app.ts';
+import { classifyKey, lintCopy, lintOvercertainty } from '../src/index.ts';
 import { appSource, appDefaultTools, TOOL_FAMILY } from './app-data.ts';
 
 describe('the app and the core stay in step', () => {
@@ -27,7 +28,9 @@ describe('the app and the core stay in step', () => {
   it('has one switch for the draft languages, on by default, and passes it to every check', () => {
     const app = appSource();
     assert.match(app, /^const GATE_DRAFT_LANGUAGES = true;$/m);
-    assert.equal((app.match(/allowDrafts: GATE_DRAFT_LANGUAGES/g) || []).length, 2);
+    const calls = (app.match(/\bassessText\(/g) || []).length - (app.match(/\bfunction assessText\(/g) || []).length;
+    assert.ok(calls >= 5, `found ${calls} safety checks: the Compass twice, a field note, a reflection, and the comparison`);
+    assert.equal((app.match(/allowDrafts: GATE_DRAFT_LANGUAGES/g) || []).length, calls, 'every safety check gets the switch');
   });
 
   it('tells people when checks in their language are new', () => {
@@ -162,5 +165,80 @@ describe('the app and the core stay in step', () => {
 
   it('keeps the old default tool list across two families as a fallback', () => {
     assert.ok(new Set(appDefaultTools().map((t) => TOOL_FAMILY[t])).size >= 2);
+  });
+});
+
+describe('the practice run in the app', () => {
+  // The practice run's screens, from its first function to the start of the App section.
+  const section = () => {
+    const app = appSource();
+    return app.slice(app.indexOf('// Practice run. The logic'), app.indexOf('// App\n// ─'));
+  };
+  const fn = (name: string) => {
+    const app = appSource();
+    const from = app.indexOf(`function ${name}(`);
+    assert.ok(from >= 0, `${name} exists`);
+    const rest = app.slice(from + 10);
+    const stop = rest.search(/\n(?:export default function |function |\/\/ ─)/);
+    return app.slice(from, stop < 0 ? undefined : from + 10 + stop);
+  };
+
+  it('has one switch, on while it is being tried with people who know it is a trial', () => {
+    const app = appSource();
+    assert.match(app, /^const PRACTICE_RUN = true;$/m);
+    assert.equal((app.match(/\{PRACTICE_RUN && /g) || []).length, 2, 'its card and its line in Settings both follow the switch');
+  });
+
+  it('has one network call in the whole app, and it is the AI translation', () => {
+    const app = appSource();
+    assert.equal((app.match(/\bfetch\(/g) || []).length, 1);
+    assert.match(app, /async function askClaude\([^)]*\) \{\n  const res = await fetch\("https:\/\/api\.anthropic\.com\/v1\/messages"/);
+  });
+
+  it('never sends the notes itself: sharing is the person sending, and only reading them together calls the AI', () => {
+    for (const name of ['PracticeHub', 'NoteSheet', 'ReflectionSheet', 'ShareNotes']) {
+      assert.doesNotMatch(fn(name), /askClaude|fetch\(|XMLHttpRequest|sendBeacon/, `${name} sends nothing on its own`);
+    }
+    assert.match(fn('ShareNotes'), /shareOrCopy\(text\)/, 'the person chooses where it goes');
+    assert.equal((fn('CompareNotes').match(/askClaude\(/g) || []).length, 1, 'the only AI call is the person pressing Read them together');
+  });
+
+  it('keeps nothing from the comparison: it has no storage of any kind', () => {
+    assert.doesNotMatch(fn('CompareNotes'), /usePersist\(|\bsave\(|\bload\(|vault\.|localStorage|browserStore|appStore|sessionStorage|indexedDB/);
+  });
+
+  it('keeps my notes private by default, and clears them with the rest of my things', () => {
+    assert.equal(classifyKey('fieldNotes'), 'private');
+    const app = appSource();
+    assert.match(app, /usePersist\("fieldNotes", emptyNotebook\(\)\)/);
+    assert.match(app, /setToolLog\(\[\]\);\n\s+setNotebookRaw\(emptyNotebook\(\)\);/);
+  });
+
+  it('runs the same safety check on what people write, and stops before saving or reading it', () => {
+    assert.match(fn('NoteSheet'), /action === "stop"\) \{ onStop\(\); return; \}/);
+    assert.match(fn('ReflectionSheet'), /action === "stop"\) \{ onStop\(\); return; \}/);
+    const compare = fn('CompareNotes');
+    assert.match(compare, /gateText\(a, b\)/);
+    assert.match(compare, /if \(action === "stop"\) \{ setHalt\("stop"\); setResult\(null\); return; \}/);
+    assert.match(compare, /action !== "decline"/, 'a language it cannot check never goes to the AI');
+  });
+
+  it('says the reassuring things on the screen, where people will read them', () => {
+    const text = section();
+    for (const line of [
+      'You write the notes. Nothing is collected from you.',
+      'The app never sends your notes anywhere.',
+      'You see exactly what will be shared, and you can take things out first.',
+      "There's no data bank.",
+      'No one has to take part, and no one should push you.',
+      "It isn't about you, and it isn't about your relationship.",
+      "It isn't an assessment of anyone's relationship.",
+      "Once it's sent, the app can't take it back.",
+    ]) assert.ok(text.includes(line), `missing: ${line}`);
+  });
+
+  it('keeps its words plain, and never promises or prescribes', () => {
+    assert.deepEqual(lintCopy(section()), []);
+    assert.deepEqual(lintOvercertainty(section()), []);
   });
 });

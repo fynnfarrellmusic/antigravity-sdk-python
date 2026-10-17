@@ -420,3 +420,42 @@ export async function migrateLegacy(store: KeyValueStore, vault: Vault, namespac
 export function hasLegacyData(store: KeyValueStore, namespace = 'dyverge:'): boolean {
   return LEGACY_PRIVATE_KEYS.some((k) => store.get(namespace + k) !== null);
 }
+
+// ── Locking a piece of text with a passphrase ────────────────────────────────────────────────
+//
+// For something that leaves the device on purpose, such as a practice run's field notes sent by
+// message or email. The same primitives as the vault (PBKDF2-SHA256 into AES-GCM-256), with a
+// fresh salt and IV every time. The reader needs the passphrase, which is told to them some other
+// way. Honest limit: a short passphrase can be guessed offline by anyone who gets the file.
+
+const LOCKED_PREFIX = 'DYVERGE-LOCKED-1:';
+const LOCK_AAD = 'dyverge:locked-text:v1';
+
+export function isLockedText(text: string): boolean {
+  return typeof text === 'string' && text.trim().startsWith(LOCKED_PREFIX);
+}
+
+export async function lockText(passphrase: string, plaintext: string, opts: CreateOptions = {}): Promise<string> {
+  if (passphrase.length < MIN_PASSPHRASE) throw new RangeError(`Passphrase needs at least ${MIN_PASSPHRASE} characters.`);
+  const iterations = opts.iterations ?? ITERATIONS;
+  const salt = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(passphrase, salt, iterations);
+  const sealed = await seal(key, LOCK_AAD, plaintext);
+  return `${LOCKED_PREFIX}${iterations}.${toB64(salt)}.${sealed.iv}.${sealed.ct}`;
+}
+
+/** The text, or null if the passphrase is wrong or the file is damaged. Never throws. */
+export async function unlockText(passphrase: string, locked: string): Promise<string | null> {
+  if (!isLockedText(locked)) return null;
+  try {
+    const parts = locked.trim().slice(LOCKED_PREFIX.length).replace(/\s+/g, '').split('.');
+    if (parts.length !== 4) return null;
+    const iterations = Number(parts[0]);
+    // A crafted file must not be able to ask for an absurd amount of work.
+    if (!Number.isInteger(iterations) || iterations < 1000 || iterations > 1_000_000) return null;
+    const key = await deriveKey(passphrase, fromB64(parts[1] as string), iterations);
+    return await unseal(key, LOCK_AAD, { iv: parts[2] as string, ct: parts[3] as string });
+  } catch (e) {
+    return null;
+  }
+}
