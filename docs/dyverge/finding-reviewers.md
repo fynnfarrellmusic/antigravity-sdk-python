@@ -62,9 +62,10 @@ the DPIA.
 ## 3. What to send
 
 From `docs/dyverge/`:
-- `review-pack-clinical.md` or `review-pack-legal.md` (22 and 19 questions)
+- `review-pack-clinical.md` or `review-pack-legal.md` (25 and 22 questions)
 - `internal-prechecks.md` (my first-pass findings, for them to confirm or overturn)
 - `sitdown-and-profiles-spec.md` (the design, with the rules and the open decisions)
+- `practice-run-guide.md` (how a trial with friends or partners would run, and what people are told)
 
 Plus screenshots or a short screen recording of the app. **Never real couples' data.** Use made-up
 details only. The restricted modules open in an internal-test build for exactly this.
@@ -75,7 +76,7 @@ details only. The restricted modules open in an internal-test build for exactly 
 > differently (including neurodivergent people). Before anyone real uses it, I'd like an
 > independent [clinical / legal] review.
 >
-> **Scope**: written answers to a numbered list of [22 / 19] questions, and a verdict
+> **Scope**: written answers to a numbered list of [25 / 22] questions, and a verdict
 > (approve, approve with changes, or don't ship) for each of four modules that are currently
 > locked. **Time**: I'd expect about [2 to 3] hours. **Materials**: a pack I'll send, plus
 > screenshots. **Please send me**: your fee for that scope, your availability, and whether you

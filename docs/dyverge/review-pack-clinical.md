@@ -76,6 +76,21 @@ different operating systems meeting (Double Empathy Problem), never one person w
 22. A forgotten passphrase loses a person's private history for good. Is that acceptable for
     this audience, and is the warning wording right?
 
+**G. Practice run (added 17 Oct)**
+23. A "practice run" lets two people (friends, or partners) try the app on their own devices,
+    write short field notes, and each choose what to send to the person running it, who may
+    use an AI to read both together. It is framed as research on the app, never an assessment of
+    the relationship (spec section 16). Is that framing safe and honest? What would you add or
+    remove to protect people, especially partners, where one may pressure the other to take
+    part or to share?
+24. The notes are free text and may hold distress or a disclosure. The app stops on hard-gate
+    phrases when a note is written and again before the person running it reads anything, and
+    shows support routes. The reader is likely a friend, not a clinician. What else should happen
+    when a note suggests someone is struggling? Is "check in with them first" the right instruction?
+25. Who should not take part (anyone in crisis, anyone who feels unsafe with the other person,
+    under 18, others?), and how should that be said before they start? Is the briefing in
+    `practice-run-guide.md` enough?
+
 ## Out of scope for this review
 
 Visual design, storage, anything to do with the Compass translation itself.

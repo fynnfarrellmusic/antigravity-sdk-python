@@ -268,6 +268,7 @@ It was rebased on 10 Oct onto the real app's data model (`lenses`, `care`,
 | `pathways.ts` | **The plural-pathways rule.** Enforced on every set it builds. Inlined into the app by `scripts/build-app.ts`. |
 | `gates.ts` | **Safety gates in ten languages.** Section 14. Inlined into the app. |
 | `vault.ts` | **Per-person encrypted private spaces.** Section 15. Inlined into the app. |
+| `fieldnotes.ts` | **The practice run**: private field notes, an allow-listed pack of exactly what a person chooses to share, a check for details that could identify someone, and reading two packs together. Never sends or saves anything. Inlined into the app. |
 | `people.ts` | **Who is on the phone, and what crosses between them**: names, published profile and spoons (allow-listed fields only), and the agreement with one signature each. Inlined into the app. |
 | `session.ts`, `proposals.ts`, `routes.ts`, `language.ts`, `access.ts` | As described earlier: sit-down rules, proposals, reviewed routes by locale, copy lint, restricted modules. |
 
@@ -398,3 +399,54 @@ lives in one shared in-memory store for the page. Two people can still pass the 
 see what the other shared, until it is closed or refreshed, and the create screen says plainly that
 nothing is kept. This was found while preparing the app for hands-on testing: before it, each screen got
 its own empty store, so a second person could not see the first at all and nothing said why.
+
+## 16. The practice run (17 Oct 2026)
+
+Fynn's idea: try dYverge with a friend or partner on their own devices, with no data bank. What each
+person chooses and consents to share is read together, as a field research tool: a practice run.
+Full how-to and wording: `practice-run-guide.md`.
+
+**The shape.** Two things move, both by a person's own hand, and nothing else does.
+
+1. A person writes **field notes** in their own private space (a vault key, private by default): the
+   kind of moment, whether dYverge helped, a line on what happened, what they would change, and
+   optionally an end-of-run reflection.
+2. They **choose what to share** in four steps (choose, label, check, share). The result is a
+   **pack**: plain text they can read exactly, optionally locked with a passphrase. They send it
+   themselves, by the share sheet, a copy or a saved file. The app never sends it.
+3. The person running the practice run **reads two packs together** (the Compare screen), in memory.
+   If an AI can be reached it reads them (both people's notes go to Anthropic). Otherwise it counts
+   and sets them side by side on the device. Or they copy a brief and paste it into Claude
+   themselves. Nothing is saved.
+
+**Why no server.** Sharing a Claude project does not carry what is in each person's browser, and a
+shared chat keeps its history, which is a data bank by another name. A file a person checks and
+sends is the one route that is local-first, consent-first and server-free. Live two-way sync, or an
+inbox with an expiry, would need a server, so both are left out on purpose.
+
+**What the code guarantees** (each is tested; the table is in the guide).
+- One network call in the whole app, and the share screens never make it.
+- `buildPack` is an allow-list: a name, passphrase, profile or anything else on the notebook cannot
+  ride along. The pack carries a day, never a time.
+- A check finds emails, phone numbers, links, postcodes and the names the app knows, and one tap
+  takes them out. The label cannot be the person's own name.
+- The Compare screen has no storage of any kind. Leaving it drops everything.
+- The safety check reads every word before a note is saved and before anything is read together. A
+  hard hit stops it, and a language it cannot check never goes to an AI.
+- Notes are data, not instructions, and cannot open or close the boxes the prompt puts them in.
+
+**Research on the app, never an assessment of a relationship.** The reading prompt forbids judging
+either person, taking a side, diagnosing, and advice about staying together, and sets `refuse` on
+danger. Suggestions are at least three different kinds or none, and the screen adds that none may
+fit. A summary for both goes back only if both agreed, and is paraphrase only.
+
+**Honest limits.** The app cannot take a sent file back, stop a screenshot, make the channel private,
+catch every identifying detail, know whether someone was pressured, or prove consent. A short
+passphrase on a locked file can be guessed offline. The AI reading is a hypothesis about how the
+app worked. Findings A20 to A25 in `internal-prechecks.md`; questions 23 to 25 (clinical) and 20 to
+22 (legal) in the packs.
+
+**Parked.** A QR handshake for the same room, live peer-to-peer, more than two people, hand-redacting
+single words, files that expire on their own.
+
+**Switch.** `PRACTICE_RUN`, true while dYverge is tried with people who know it is a trial.

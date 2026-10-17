@@ -1,6 +1,27 @@
 # dYverge: decisions so far
 
-One page. What you decided, what it changed, and what is still open. Newest at the top. All of it was written on 10 October 2026, in three rounds.
+One page. What you decided, what it changed, and what is still open. Newest at the top. Written between 10 and 17 October 2026, in four rounds.
+
+## Round 4: the practice run (17 October)
+
+You asked for a way to try dYverge with a friend or partner, on their own device, with nothing
+stored in a data bank, and the analysis made from what each person chooses to share.
+
+| What I decided | Why |
+|---|---|
+| **A file the person checks and sends themselves.** No server, no account, no shared chat | It is the only route that is local-first, consent-first and has no data bank. A shared Claude project doesn't carry what is in each person's browser, and a shared chat keeps its history |
+| **The app never sends the notes.** One network call in the whole app, and the share screens don't make it | So "nothing leaves unless you send it" is something the tests check, not only something we say |
+| **Notes are private by default**, in each person's own space | Same rule as everything else: a new kind of data is locked until someone decides otherwise |
+| **The reading is for the person running it.** A summary for both comes back only if both ticked yes, and never quotes anyone | Reassurance for both people. Neither can be talked about without having agreed |
+| **It is research on the app, never an assessment of the relationship** | Otherwise it becomes an unreviewed relationship verdict, and a tool for "the AI says it's you" |
+| **A passphrase lock is optional**, and a serious note stops everything | For email or text, and for the same care the rest of the app takes |
+| **On for trial builds** (`PRACTICE_RUN`) | You want to run it now. Switch it off for anything wider |
+
+What isn't possible without a server, and was left out on purpose: live two-way sync between two
+phones, and a "send it to me" inbox that expires on its own. Both are a data bank by another name.
+
+**Please do this first:** friends who know it's a trial, not partners, until a clinician and a
+solicitor have seen `practice-run-guide.md`.
 
 ## Round 3: the eight clicks
 
@@ -60,6 +81,8 @@ One page. What you decided, what it changed, and what is still open. Newest at t
 | **Safety stop** has no "call your local emergency number" line (the language screen does) | Small, protective. Say yes and I'll add it. |
 | **The browser can clear stored data on its own** (Safari after about a week of not opening the site, "clear browsing data", a full phone). With no recovery, a private space could vanish with no warning | Say so in plain words in Settings, ask the browser to keep the data, suggest the Home Screen. Your call (finding A18). |
 | **A rare, unexplained loss of stored data** seen in automated browser tests under heavy load (not caused by the app removing anything; not reproduced with a bare page) | One real-phone check once there is a build to try (finding A19). |
+| **A practice run with real people** | Friends first. A clinician and a solicitor to see `practice-run-guide.md` before partners take part (pack questions 20 to 25, findings A20 to A25). |
+| **How much a practice-run file promises about deletion** | Only promise what you'll really do. The wording in the guide is a draft for you to edit. |
 | Voice has no on-device option | Revisit when a browser offers one. |
 | Translating between languages (the Compass still writes in English) | A later build. |
 | The sit-down facilitator, observation drafting, profile proposals | Built as rules and tests only; locked until reviewed. |

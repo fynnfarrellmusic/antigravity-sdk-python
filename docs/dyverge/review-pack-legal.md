@@ -72,6 +72,19 @@ listing it for the reviewer to confirm, not advising on it.
 19. What leaves the private space is Our words and the agreement. Is that the right line for
     "shared communication", and what consent does each person need for a shared item?
 
+**Practice run (added 17 Oct)**
+20. A practice run is run by the product owner with friends or partners. I think the household
+    exemption does not apply, because it is research on a product, so the owner becomes a
+    controller of whatever people send. What lawful basis and what wording of consent do you
+    advise, given notes may reveal health or neurodivergence (special category data)?
+21. What leaves a person's phone is a file they check and send themselves. The app sends
+    nothing. If the person running it pastes the notes into an AI (Anthropic), is Anthropic a
+    processor, and what must people be told? The app says so on screen now. Is that enough, and
+    what deletion promise can honestly be made once a file has been sent?
+22. A combined summary goes back to two people only if both agree, and it is paraphrase only. Is
+    there any risk in a summary that draws on both people's data? Is a passphrase-locked file (the
+    passphrase told by another route) a sensible minimum for sending by email or text?
+
 **Operational**
 12. Age: 18+ only. How must that be enforced and recorded?
 13. Terms, privacy notice and in-flow disclosures needed per jurisdiction.
