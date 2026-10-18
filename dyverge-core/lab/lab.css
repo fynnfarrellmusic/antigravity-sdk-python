@@ -1,0 +1,559 @@
+:root {
+  /* Layout concept: one step at a time. A slim status bar on top, one card for the current step,
+     then a paper tape of what the relay carries and a bench of tools underneath. The colours are the
+     app's own (warm paper, iris for actions) with the tape in night ink, so the unreadable part
+     looks different from the readable part. System fonts only: nothing is fetched. */
+  --paper: #faf8f5;
+  --sunk: #f3efe8;
+  --edge: #e2dacd;
+  --ink: #2a2520;
+  --soft: #5f574e;
+  --faint: #6e665c;
+  --iris: #5446d0;
+  --on-iris: #ffffff;
+  --iris-wash: #eeebfb;
+  --ok: #2b7048;
+  --ok-wash: #e3f1e8;
+  --bad: #a8324a;
+  --bad-wash: #f8e7ea;
+  --warn: #8a5316;
+  --warn-wash: #faeedb;
+  --tape: #1c1a26;
+  --tape-ink: #cfc9f5;
+  --tape-dim: #8f88c4;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --radius: 14px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper: #15131d;
+    --sunk: #1e1b29;
+    --edge: #38334b;
+    --ink: #ece8f4;
+    --soft: #b9b2c9;
+    --faint: #9a92ae;
+    --iris: #a89cff;
+    --on-iris: #14111f;
+    --iris-wash: #26214a;
+    --ok: #7ed39e;
+    --ok-wash: #1b2e24;
+    --bad: #f59aab;
+    --bad-wash: #3a1d25;
+    --warn: #e9b77c;
+    --warn-wash: #3a2c1b;
+    --tape: #0e0c15;
+    --tape-ink: #c4bef2;
+    --tape-dim: #8a84bd;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --paper: #15131d;
+  --sunk: #1e1b29;
+  --edge: #38334b;
+  --ink: #ece8f4;
+  --soft: #b9b2c9;
+  --faint: #9a92ae;
+  --iris: #a89cff;
+  --on-iris: #14111f;
+  --iris-wash: #26214a;
+  --ok: #7ed39e;
+  --ok-wash: #1b2e24;
+  --bad: #f59aab;
+  --bad-wash: #3a1d25;
+  --warn: #e9b77c;
+  --warn-wash: #3a2c1b;
+  --tape: #0e0c15;
+  --tape-ink: #c4bef2;
+  --tape-dim: #8a84bd;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.55;
+  padding-block: 24px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  display: grid;
+  gap: 24px;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 0;
+  text-wrap: balance;
+}
+
+h1 {
+  font-size: clamp(28px, 7vw, 38px);
+}
+
+h2 {
+  font-size: clamp(22px, 5.5vw, 28px);
+  margin-bottom: 12px;
+}
+
+h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+}
+
+p {
+  margin: 0 0 12px;
+  max-width: 62ch;
+}
+
+.lede {
+  color: var(--soft);
+  margin: 6px 0 14px;
+}
+
+.hint {
+  color: var(--faint);
+  font-size: 14px;
+}
+
+.status {
+  color: var(--soft);
+  font-weight: 600;
+}
+
+.problem {
+  background: var(--bad-wash);
+  color: var(--bad);
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+/* The two chips at the top: where the channel and the room are. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  background: var(--sunk);
+  color: var(--soft);
+  border: 1px solid var(--edge);
+}
+
+.chip.ok {
+  background: var(--ok-wash);
+  color: var(--ok);
+  border-color: transparent;
+}
+
+.chip.warn {
+  background: var(--warn-wash);
+  color: var(--warn);
+  border-color: transparent;
+}
+
+.chip.bad {
+  background: var(--bad-wash);
+  color: var(--bad);
+  border-color: transparent;
+}
+
+/* The one card for the step you are on. */
+.card {
+  background: var(--sunk);
+  border: 1px solid var(--edge);
+  border-radius: var(--radius);
+  padding: clamp(16px, 4vw, 24px);
+  min-width: 0;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.choice {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  min-height: 84px;
+  padding: 14px 16px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.choice strong {
+  font-family: var(--serif);
+  font-size: 20px;
+}
+
+.choice span {
+  color: var(--soft);
+  font-size: 14.5px;
+}
+
+.choice:hover {
+  border-color: var(--iris);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.btn {
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: var(--iris);
+  color: var(--on-iris);
+}
+
+.btn.secondary {
+  background: transparent;
+  color: var(--iris);
+  border-color: var(--iris);
+}
+
+.btn.quiet {
+  background: transparent;
+  color: var(--soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.btn.small {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 3px solid var(--iris);
+  outline-offset: 2px;
+}
+
+h2:focus {
+  outline: none;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 16px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.field label,
+.field legend {
+  font-weight: 600;
+  padding: 0;
+}
+
+input[type='text'],
+select,
+textarea {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-height: 46px;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.check input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  accent-color: var(--iris);
+}
+
+.check label {
+  font-weight: 400;
+}
+
+.code {
+  font-family: var(--mono);
+  font-size: clamp(18px, 5.4vw, 26px);
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+  background: var(--paper);
+  border: 1px dashed var(--iris);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 8px 0;
+}
+
+.fallback {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.terms {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 12px 0;
+}
+
+.terms dt {
+  color: var(--faint);
+  font-size: 14px;
+}
+
+.terms dd {
+  margin: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+/* The five words, big enough to read aloud across a table. */
+.plate {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0;
+  margin: 16px 0;
+}
+
+.plate li {
+  font-family: var(--serif);
+  font-size: clamp(22px, 6.4vw, 32px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: var(--iris-wash);
+  border: 1px solid var(--edge);
+}
+
+.words-inline {
+  font-family: var(--serif);
+  color: var(--ink);
+}
+
+.log {
+  list-style: none;
+  margin: 12px 0;
+  padding: 12px;
+  height: 240px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--paper);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+}
+
+.msg {
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.msg .who {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.msg.you {
+  align-self: flex-end;
+  background: var(--iris-wash);
+}
+
+.msg.them {
+  align-self: flex-start;
+  background: var(--sunk);
+  border: 1px solid var(--edge);
+}
+
+.msg.note {
+  align-self: center;
+  max-width: 100%;
+  padding: 2px 8px;
+  color: var(--faint);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.suggestion {
+  background: var(--iris-wash);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-top: 8px;
+}
+
+.suggest-text {
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+/* A summary keeps its default triangle only if it is not made a flex box. */
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 9px 0;
+  min-height: 44px;
+}
+
+.tools {
+  border-top: 1px solid var(--edge);
+  margin-top: 12px;
+  padding-top: 4px;
+}
+
+.visually {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Under the card: the bench. Hairlines, not boxes. */
+#bench {
+  display: grid;
+  gap: 20px;
+}
+
+.bench-card {
+  border-top: 1px solid var(--edge);
+  padding-top: 16px;
+  min-width: 0;
+}
+
+.plain {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+
+.plain li {
+  margin: 4px 0;
+}
+
+/* The paper tape: what the relay carries. Night ink, so unreadable looks different from readable. */
+.tape {
+  list-style: none;
+  margin: 10px 0;
+  padding: 12px;
+  background: var(--tape);
+  color: var(--tape-ink);
+  border-radius: 10px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  overflow: hidden;
+}
+
+.tape li {
+  display: grid;
+  grid-template-columns: 6.5em 7.5em minmax(0, 1fr);
+  gap: 10px;
+}
+
+.tape .arrow,
+.tape .size {
+  color: var(--tape-dim);
+}
+
+.tape .bits {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tape .empty {
+  display: block;
+  color: var(--tape-dim);
+}
+
+.radios {
+  display: grid;
+  gap: 2px;
+}
+
+.foot {
+  color: var(--faint);
+  font-size: 13.5px;
+  border-top: 1px solid var(--edge);
+  padding-top: 14px;
+}
+
+.foot p {
+  margin: 0 0 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
