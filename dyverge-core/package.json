@@ -9,7 +9,8 @@
     "test": "node --test \"test/*.test.ts\"",
     "build:app": "node scripts/build-app.ts",
     "check:app": "node scripts/build-app.ts --check",
-    "smoke": "node smoke/run.mjs"
+    "smoke": "node smoke/run.mjs",
+    "mutate:livelink": "node scripts/mutate-livelink.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",

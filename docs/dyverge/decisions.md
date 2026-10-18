@@ -1,6 +1,33 @@
 # dYverge: decisions so far
 
-One page. What you decided, what it changed, and what is still open. Newest at the top. Written between 10 and 17 October 2026, in four rounds.
+One page. What you decided, what it changed, and what is still open. Newest at the top. Written between 10 and 18 October 2026, in five rounds.
+
+## Round 5: the live link (18 October)
+
+You asked for two phones using a live link, where only the two people in the room at that moment can
+read it, with logins so the app can grow, nothing sent unencrypted, as little pulled from the internet
+as possible, and consent first. You said to be wild, and that if it couldn't be trustworthy you'd
+rather wait. I took "wait" seriously: nothing here is in the app, and nothing here is for real words.
+
+| What I decided | Why |
+|---|---|
+| **Invent the design, not the cipher.** Every primitive is the browser's own (P-256, HKDF, HMAC, AES-GCM). The new part is how they are put together for consent | A home-made cipher is how secure apps get broken. The wild part is that consent is built into the keys |
+| **The invite is a key, the knock carries the terms, and the terms are part of the keys.** Change them anywhere and nothing opens | A nervous person can see exactly what they are agreeing to, and nobody can quietly change it |
+| **A "no" sends nothing, and a quiet exit looks like a lost connection** | For a person who feels pushed. A refusal that leaves a mark is a way to be punished for refusing |
+| **Nothing flows until both people have checked the same five words** (or saved each other once) | A person in the middle gets caught by people, not by trust |
+| **A room lives only while both are here.** Quiet "still here" messages; keys wiped when it ends or goes quiet | "Only the two logged in at that time" is true in the keys, not just the screen |
+| **A login is a key on your device** (unlocking your private space unlocks it). No account | You want logins and also no data bank. A key gives the first without the second. Accounts are a separate, later decision |
+| **It is a spike.** It has 74 tests, including a hostile relay, a forger, and a check that breaks it 28 ways. It is not in the app | The tests show it does what it says. They can't show it is sound. Only an independent expert can |
+| **The AI call is not part of the link.** On the hosted route it runs on each person's own device and Claude account | You chose "their own Claude account". Nothing of yours is in the path |
+
+Where it is written down: `live-link-design.md` (what it promises, who it is built against, what it
+cannot do, and an exact protocol reference). New findings A26 to A34, legal questions 23 to 25,
+clinical questions 26 to 28, and a third reviewer (security) in `finding-reviewers.md`.
+
+**The thing I want you to hear:** encryption inside a web page can't protect people from whoever
+publishes the page. For a nervous friend, that is you. What helps is being able to show them: a
+fingerprint of the code in the page, a frozen build that has been looked at, a technical friend who
+can check. That is finding A27, and it needs your decision more than any cryptography does.
 
 ## Round 4: the practice run (17 October)
 
@@ -83,6 +110,11 @@ solicitor have seen `practice-run-guide.md`.
 | **A rare, unexplained loss of stored data** seen in automated browser tests under heavy load (not caused by the app removing anything; not reproduced with a bare page) | One real-phone check once there is a build to try (finding A19). |
 | **A practice run with real people** | Friends first. A clinician and a solicitor to see `practice-run-guide.md` before partners take part (pack questions 20 to 25, findings A20 to A25). |
 | **How much a practice-run file promises about deletion** | Only promise what you'll really do. The wording in the guide is a draft for you to edit. |
+| **Which route to explore for the live link** | The platform's live channel, using the lab with two of your own devices (`live-link-design.md`). |
+| **Accounts** (logins that live somewhere, to find each other or restore a phone) | None for now. Three options are set out in the design note; decide after the lab and the reviews (A33). |
+| **Who can change the page** (A27) | Show a code fingerprint in the page, keep a frozen reviewed build for trials, say the fingerprint beforehand. Your call. |
+| **A security reviewer** | Needed before real words go over the live link (`finding-reviewers.md`, section 3). |
+| **Fonts, again** | You said to minimise what the app pulls from the internet. Self-hosting the fonts is the obvious first step, and a strict no-network lock for an offline build would let the file prove it. Say yes and I'll do both. |
 | Voice has no on-device option | Revisit when a browser offers one. |
 | Translating between languages (the Compass still writes in English) | A later build. |
 | The sit-down facilitator, observation drafting, profile proposals | Built as rules and tests only; locked until reviewed. |

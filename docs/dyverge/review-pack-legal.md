@@ -85,6 +85,21 @@ listing it for the reviewer to confirm, not advising on it.
     there any risk in a summary that draws on both people's data? Is a passphrase-locked file (the
     passphrase told by another route) a sensible minimum for sending by email or text?
 
+**Live link (added 18 Oct)**
+23. The live link is an end-to-end encrypted room between two people on two phones, carried by a
+    third party's channel (for the trial, the Claude platform's live channel). The product cannot
+    read what passes. Does this make the product a "user-to-user service" under the Online Safety
+    Act 2023, with duties such as an illegal-content risk assessment? Does it matter that it is
+    one-to-one, that nothing is stored, or that it is a trial? (`live-link-design.md`)
+24. Does any other UK law on encrypted communications apply to offering a product like this, for
+    example the Investigatory Powers Act 2016, or rules on telecommunications providers? I don't
+    know, and would rather ask than assume.
+25. Accounts and metadata. Today there is no account: a phone holds a key. If accounts are added
+    later (to find each other, or restore a lost phone), what changes: controller duties, retention,
+    deletion, the data protection assessment? And for a trial on the Claude platform, who is the
+    controller of the room's metadata (who met whom, when), and what must people be told? I have not
+    checked the platform's or Anthropic's current retention terms.
+
 **Operational**
 12. Age: 18+ only. How must that be enforced and recorded?
 13. Terms, privacy notice and in-flow disclosures needed per jurisdiction.

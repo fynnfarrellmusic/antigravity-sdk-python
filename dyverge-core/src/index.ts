@@ -11,3 +11,4 @@ export * from './gates.ts';
 export * from './vault.ts';
 export * from './people.ts';
 export * from './fieldnotes.ts';
+export * from './livelink.ts';

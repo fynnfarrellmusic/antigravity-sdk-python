@@ -68,6 +68,15 @@ npm run check:app     # fail if the app's block is out of date (a test also does
 npm run smoke         # build and drive the real app in headless Chromium, with assertions
 ```
 
+The live link has its own check, which is not part of `npm test` because it takes about two minutes:
+
+```sh
+npm run mutate:livelink   # breaks livelink.ts in 28 specific ways; the tests must notice each one
+```
+
+It reports each change as caught, or "equivalent" (removing it changes nothing anyone can see, with the
+reason), and exits with 1 if a real one survives. The first run found five gaps in the tests, now closed.
+
 Edit `src/pathways.ts`, never the generated block. The tests read the app file itself
 (tool ids, Vibe profiles, families), so a change in the app that breaks the rule fails here.
 
@@ -99,6 +108,7 @@ Switches in the app, all enforced by tests:
 | `gates.ts` | Safety gates in English plus nine draft languages, run on every text. A hard hit always stops. Languages with no gates are declined. `assessText(text, { allowDrafts })`. |
 | `vault.ts` | Per-person encrypted private spaces. `classifyKey` decides what is private, shared or open (default-deny). `createVault`, `openVault`, `ephemeralVault`, `migrateLegacy`, and `lockText`/`unlockText` to lock a file with a passphrase. |
 | `fieldnotes.ts` | The practice run: private field notes, `buildPack` (an allow-list of exactly what can be shared), the identifying-details check, a strict `parsePack`, and reading two packs together (`comparePrompt`, `parseComparison`, `localComparison`). Never sends or saves anything. |
+| `livelink.ts` | The live link: an encrypted room for two people on two phones. The invite is a key, the knock carries the terms, the terms are part of the keys, nothing flows until both have checked five words, and a room lives only while both are here. It only turns strings into strings: it never opens a connection or touches storage. **A spike: tested, not independently reviewed, not in the app.** See `docs/dyverge/live-link-design.md`. |
 | `people.ts` | Who is on the phone (two at most), and what crosses between them: names, a published profile and spoon level (allow-listed fields only), and the agreement with one signature each. |
 | `pathways.ts` | The plural-pathways rule: at least 3 kinds of help, at least 2 regulation families, always a person, always a way to say none fit. |
 | `session.ts` | Observations stop after a hard or power gate. Summaries need both people. Delete your own words alone. |

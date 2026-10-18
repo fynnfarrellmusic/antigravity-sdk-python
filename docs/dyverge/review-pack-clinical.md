@@ -91,6 +91,21 @@ different operating systems meeting (Double Empathy Problem), never one person w
     under 18, others?), and how should that be said before they start? Is the briefing in
     `practice-run-guide.md` enough?
 
+**H. Live link (added 18 Oct)**
+26. A live link would let two people use the app at the same time from different places, with
+    nothing stored. In the middle of a conflict that could help, or it could make things worse at
+    a distance. What should stop or slow it? The sit-down rule is that no joint session happens
+    while either person is flooded. Should the same rule apply here, and what should the app say
+    when it does?
+27. Saying no to opening a room sends nothing, so to the other person it looks the same as not being
+    there. Leaving a room quietly looks like a lost connection. These are meant to protect a person
+    who feels pushed. Do they help, or could they make the other person's reaction worse? What
+    wording should come with them?
+28. Before a room opens, both people read the same five words aloud (or save each other once and
+    skip it). Is that a safe ritual between partners, or a pressure point where one insists? For a
+    nervous person, does it reassure or add a burden? Is "friends before partners" the right order
+    for trying it?
+
 ## Out of scope for this review
 
 Visual design, storage, anything to do with the Compass translation itself.
