@@ -71,11 +71,18 @@ npm run smoke         # build and drive the real app in headless Chromium, with 
 The live link has its own check, which is not part of `npm test` because it takes about two minutes:
 
 ```sh
-npm run mutate:livelink   # breaks livelink.ts in 28 specific ways; the tests must notice each one
+npm run mutate:livelink   # breaks livelink.ts in 29 specific ways; the tests must notice each one
 ```
 
 It reports each change as caught, or "equivalent" (removing it changes nothing anyone can see, with the
 reason), and exits with 1 if a real one survives. The first run found five gaps in the tests, now closed.
+
+The lab page for trying the room on two devices lives in `lab/`:
+
+```sh
+npm run build:lab   # writes lab/dist/live-link-lab.html (not committed)
+npm run smoke:lab   # two real browser pages and a stand-in for the platform's live channel
+```
 
 Edit `src/pathways.ts`, never the generated block. The tests read the app file itself
 (tool ids, Vibe profiles, families), so a change in the app that breaks the rule fails here.

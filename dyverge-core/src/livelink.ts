@@ -33,8 +33,8 @@
 //      keys, sent again if it is lost). A pinned contact (a fingerprint already trusted) skips the
 //      words. Different words, or a pinned key that has changed, seal the room.
 //   6. A ROOM LIVES ONLY WHILE BOTH ARE HERE. Each direction has its own hash chain: one key per
-//      message, used once, then gone (forward secrecy inside the room). Quiet "still here"
-//      messages keep it open. If one goes quiet, or the agreed time runs out, both sides wipe
+//      message, used once, then gone (forward secrecy inside the room). A room speaks the moment
+//      it goes live, and quiet "still here" messages after that keep it open. If one goes quiet, or the agreed time runs out, both sides wipe
 //      their keys. There is no transcript to read afterwards because nothing is written down.
 //   7. LENGTHS ARE HIDDEN. Everything said after the handshake is padded up to a fixed size, so a
 //      relay cannot tell a "yes" from a paragraph.
@@ -960,10 +960,10 @@ async function llMarkReady(st: LlState, step: LinkStep): Promise<void> {
     st.lastReady = st.now();
     step.out.push(frame);
   }
-  if (st.peerReady) llGoLive(st, step);
+  if (st.peerReady) await llGoLive(st, step);
 }
 
-function llGoLive(st: LlState, step: LinkStep): void {
+async function llGoLive(st: LlState, step: LinkStep): Promise<void> {
   if (st.phase !== 'verify') return;
   st.phase = 'live';
   st.liveAt = st.lastHeard = st.now();
@@ -971,6 +971,10 @@ function llGoLive(st: LlState, step: LinkStep): void {
   const held = st.pending;
   st.pending = [];
   for (const m of held) if (st.charter?.kinds.includes(m.kind)) step.events.push({ type: 'message', kind: m.kind, body: m.body });
+  // Say something at once. It tells the other side this room is live, so a "ready" never needs to be
+  // repeated when nothing was lost.
+  const frame = await llSendFrame(st, T_BEAT, LL_EMPTY);
+  if (frame) step.out.push(frame);
 }
 
 /** The handshake is done and both phones hold the same keys. Now the people check the words. */
@@ -1131,7 +1135,7 @@ async function llOnChain(st: LlState, f: LlFrame, text: string, step: LinkStep):
   if (type !== T_READY) st.peerLive = true;
   if (type === T_READY) {
     st.peerReady = true;
-    if (st.localReady) llGoLive(st, step);
+    if (st.localReady) await llGoLive(st, step);
   } else if (type === T_SEAL) {
     llClose(st, step, SEAL_CODES[payload[0] ?? 0] ?? 'they-sealed');
   } else if (type === T_NARROW) {

@@ -17,7 +17,8 @@ rather wait. I took "wait" seriously: nothing here is in the app, and nothing he
 | **Nothing flows until both people have checked the same five words** (or saved each other once) | A person in the middle gets caught by people, not by trust |
 | **A room lives only while both are here.** Quiet "still here" messages; keys wiped when it ends or goes quiet | "Only the two logged in at that time" is true in the keys, not just the screen |
 | **A login is a key on your device** (unlocking your private space unlocks it). No account | You want logins and also no data bank. A key gives the first without the second. Accounts are a separate, later decision |
-| **It is a spike.** It has 74 tests, including a hostile relay, a forger, and a check that breaks it 28 ways. It is not in the app | The tests show it does what it says. They can't show it is sound. Only an independent expert can |
+| **It is a spike.** It has 75 tests, including a hostile relay, a forger, and a check that breaks it 29 ways. It is not in the app | The tests show it does what it says. They can't show it is sound. Only an independent expert can |
+| **A lab page to try it on two devices**, with made-up words only | You said it needs to be explored in real time. It shows the relay's view (all ciphertext), lets you damage your own messages to see them refused, and copies a report of numbers, never words, for you to paste back to me |
 | **The AI call is not part of the link.** On the hosted route it runs on each person's own device and Claude account | You chose "their own Claude account". Nothing of yours is in the path |
 
 Where it is written down: `live-link-design.md` (what it promises, who it is built against, what it

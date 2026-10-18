@@ -457,6 +457,17 @@ describe('a channel that drops things', () => {
     }
   });
 
+  it('speaks as soon as it is live, so a healthy room never repeats a "ready" or refuses a repeat', async () => {
+    const room = await setup();
+    await goLive(room);
+    assert.deepEqual(room.a.link.stats(), { sent: 2, received: 2, missing: 0 });
+    room.clock.advance(LINK_TIMING.resendMs + 1);
+    assert.deepEqual((await room.a.link.tick()).out, []);
+    assert.deepEqual((await room.b.link.tick()).out, []);
+    assert.deepEqual(ignoredOf(room.a.events), []);
+    assert.deepEqual(ignoredOf(room.b.events), []);
+  });
+
   it('does not make a fuss about a knock it has already heard', async () => {
     const room = await setup();
     await act(room, 'a', room.knock);
@@ -903,15 +914,15 @@ describe('talking in the room', () => {
   it('counts what went by, and what is missing', async () => {
     const room = await setup();
     await goLive(room);
-    assert.deepEqual(room.a.link.stats(), { sent: 1, received: 1, missing: 0 }, 'just the two "ready"s so far');
+    assert.deepEqual(room.a.link.stats(), { sent: 2, received: 2, missing: 0 }, 'a "ready" and a first word from each side');
     const f: string[] = [];
     for (const w of ['one', 'two', 'three']) f.push(only(await room.a.link.send('words', w)));
-    assert.equal(room.a.link.stats().sent, 4);
+    assert.equal(room.a.link.stats().sent, 5);
     await room.b.link.receive(f[0]!);
     await room.b.link.receive(f[2]!);
-    assert.deepEqual(room.b.link.stats(), { sent: 1, received: 3, missing: 1 });
+    assert.deepEqual(room.b.link.stats(), { sent: 2, received: 4, missing: 1 });
     await room.b.link.receive(f[1]!);
-    assert.deepEqual(room.b.link.stats(), { sent: 1, received: 4, missing: 0 });
+    assert.deepEqual(room.b.link.stats(), { sent: 2, received: 5, missing: 0 });
   });
 
   it('handles both people talking at once', async () => {
@@ -1350,8 +1361,8 @@ describe('closing the room', () => {
   it('says "still here" only when it is due', async () => {
     const room = await setup();
     await goLive(room);
-    // Until the other side has said something after going live, a "ready" is sent again in case it
-    // was lost. Let each side speak once, so that this test is only about "still here".
+    // Each side said something the moment it went live, so the next "still here" is a beat away.
+    assert.deepEqual((await room.a.link.tick()).out, []);
     room.clock.advance(LINK_TIMING.beatMs);
     await act(room, 'a', await room.a.link.tick());
     await act(room, 'b', await room.b.link.tick());

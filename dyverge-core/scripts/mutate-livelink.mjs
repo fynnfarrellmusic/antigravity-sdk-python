@@ -43,7 +43,7 @@ const mutants = [
   ['no limit on how far ahead a frame may be', (s) => s.replace("if (n - chain.next > LINK_LIMITS.skip) return 'too-far';", '')],
   ['a failed frame still moves the chain', (s) => s.replace('  const plain = mk ? await llOpen(mk.key, mk.nonce, ct, aad) : null;\n  if (!mk || !plain) {', '  const plain = mk ? await llOpen(mk.key, mk.nonce, ct, aad) : null;\n  chain.ck = ck; chain.next = n + 1;\n  if (!mk || !plain) {')],
   ['sending is allowed before the room is live', (s) => s.replace("if (st.phase !== 'live') return refuse('not-live', 'The room is not open');\n        if (!st.charter?.kinds.includes(kind))", "if (st.phase !== 'live' && st.phase !== 'verify') return refuse('not-live', 'The room is not open');\n        if (!st.charter?.kinds.includes(kind))")],
-  ['the room goes live without waiting for the other person', (s) => s.replace('  if (st.peerReady) llGoLive(st, step);\n}\n\nfunction llGoLive', '  llGoLive(st, step);\n}\n\nfunction llGoLive')],
+  ['the room goes live without waiting for the other person', (s) => s.replace('  if (st.peerReady) await llGoLive(st, step);\n}\n\nasync function llGoLive', '  await llGoLive(st, step);\n}\n\nasync function llGoLive')],
   ['keys are not wiped on close', (s) => s.replace('  llWipeChain(st.sending);\n  llWipeChain(st.receiving);\n  st.secret', '  st.secret')],
   ['a room can be widened', (s) => s.replace("if (!fine) return refuse('widen', 'A room can be narrowed, never widened');", '')],
   ['the receiving side does not enforce the agreed kinds', (s) => s.replace("} else if (st.charter?.kinds.includes(m.kind)) {\n      step.events.push({ type: 'message'", "} else if (true) {\n      step.events.push({ type: 'message'")],
@@ -60,6 +60,7 @@ const mutants = [
     .replace('} else if (st.readyFrame && !st.peerReady && t - st.lastReady >= timing.resendMs) {', '} else if (false) {')
     .replace('if (st.readyFrame && !st.peerLive && t - st.lastReady >= timing.resendMs) {', 'if (false) {')],
   ['early frames are dropped instead of kept', (s) => s.replace('if (st.stash.length < LINK_LIMITS.stash) st.stash.push(text);', '')],
+  ['a room does not speak when it goes live', (s) => s.replace('  const frame = await llSendFrame(st, T_BEAT, LL_EMPTY);\n  if (frame) step.out.push(frame);\n}\n\n/** The handshake is done', '}\n\n/** The handshake is done')],
   ['a narrowing replaces instead of intersecting', (s) => s.replace('const kept = st.charter.kinds.filter((k) => (next as string[]).includes(k));', 'const kept = (next as string[]).slice().sort();')],
 ];
 

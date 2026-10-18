@@ -3,7 +3,8 @@
 Written 18 Oct 2026. **Status: a spike. It has tests, it is not in the app yet, nobody independent has
 reviewed it, and it must not carry real people's words until someone has.**
 
-The code is `dyverge-core/src/livelink.ts`. The tests are `dyverge-core/test/livelink.test.ts`.
+The code is `dyverge-core/src/livelink.ts`. The tests are `dyverge-core/test/livelink.test.ts`. A page to
+try it on two devices is `dyverge-core/lab/` (see "The lab", below).
 
 ## What you asked for
 
@@ -102,9 +103,9 @@ ECDH and ECDSA on P-256, HKDF, HMAC, AES-GCM, all with SHA-256.
 | The module can't touch the network, storage or the page | It has no imports and uses only the browser's crypto | "never touches the network, storage, the page, or a weak random source" |
 | The test hooks can't leak into the app | They exist only when asked for | "keeps its test hooks out of the app and out of ordinary links" |
 
-**Do the tests notice when the code is wrong?** `npm run mutate:livelink` breaks the module in 28
+**Do the tests notice when the code is wrong?** `npm run mutate:livelink` breaks the module in 29
 specific ways, one at a time (a signature check removed, a key not wiped, a limit dropped, the terms
-left out of the keys...) and checks that the tests fail each time. Today: 26 are caught and 2 are
+left out of the keys...) and checks that the tests fail each time. Today: 27 are caught and 2 are
 "equivalent", meaning removing them changes nothing anyone can see (the words also commit to both
 identities, which the signatures already guarantee; and an explicit invalid-point check repeats what
 the browser refuses anyway). The first run of this check found five real gaps in the tests, which
@@ -190,7 +191,7 @@ are 4000 characters at most.
 | Route | What it is | For | Against |
 |---|---|---|---|
 | **The Claude platform's live channel** (what the lab uses) | A private page on Claude's platform. Its `room` capability carries short messages between people who have the page open and are signed in. It is live only: nothing is stored. | No server of ours, no keys to look after, sign-in comes with it, and the AI call can run on each person's own Claude account | Both people need access to the platform. It can drop messages. The platform sees metadata. The platform's notes say a room name is not secret, so only the encryption keeps one pair apart. How a guest is treated is for the lab to find out |
-| **Phone to phone (WebRTC)**, paired by a code or QR | A direct data channel | Nothing in the middle sees even metadata | Each phone's network address is shown to the other. It can fail on mobile networks without a relay, which brings a server back. Pairing by hand is clumsy |
+| **Phone to phone (WebRTC)**, paired by a code or QR | A direct data channel | Nothing in the middle sees even metadata | The platform's page rules say WebRTC does not run inside a page, so it would have to be a file outside the platform. Each phone's network address is shown to the other. It can fail on mobile networks without a relay, which brings a server back. Pairing by hand is clumsy |
 | **A blind relay of our own** | A tiny server that forwards strings | Works for anyone, no account | Hosting, cost, abuse, a privacy notice, a processor. Everything you wanted to avoid, in a smaller box |
 
 The lab is for finding out which of these feels right in practice.
@@ -211,8 +212,43 @@ button that shows what a guest can and can't do.
 cd dyverge-core
 npm test                  # all the tests, including the live link ones
 npm run typecheck
-npm run mutate:livelink   # breaks the module 28 ways; about two minutes
+npm run mutate:livelink   # breaks the module 29 ways; about two minutes
 ```
+
+## The lab
+
+`dyverge-core/lab/` is a single page for trying the room on two devices. It imports the real
+`livelink.ts`, so what it runs is what the tests cover, and it isn't minified, so someone technical
+can read exactly what runs. It asks the platform for two abilities only (the live channel, and a
+question to Claude on the viewer's own account when a button is pressed) and has no database, files
+or other access.
+
+You make a door on one device and give the code to the other. The other device sees the terms before
+anything opens, then both show the same five words. Under the room there is:
+
+- **What the relay carries**: a paper tape of every frame the platform sees. It is all strings it
+  cannot read.
+- **Try to break it**: damages your own next message on its way out (change a character, send it
+  twice, lose it, send junk). The other device should refuse what is wrong, say so, and carry on.
+- **A card and "Soften with Claude"**: the product's rule in miniature. A card is three tick-boxes
+  about how you like to receive messages. Claude, on the other person's side, is shown your tick-boxes
+  and their own draft, never your words, and what it suggests is shown to them first. Nothing crosses
+  until they press send.
+- **Time a round trip**, **Pause everything**, **Seal the room**, **Leave quietly**, and a
+  **patience** setting (how long to wait for a quiet partner), which is how you find out how much your
+  phone lets a page do in the background.
+- **Tell me how it went**: copies a short report of numbers and timings, never any words. Paste it
+  into the chat with Claude.
+
+```sh
+cd dyverge-core
+npm run build:lab    # writes lab/dist/live-link-lab.html (not committed)
+npm run smoke:lab    # two real browser pages and a stand-in for the platform's live channel
+```
+
+The browser test records everything the stand-in relay was handed, to check it only ever sees
+ciphertext, and makes the relay misbehave. It can't prove the real platform behaves the same. That is
+what opening the lab on two devices is for.
 
 ## Before real people use it
 
@@ -321,6 +357,7 @@ data    = len(kind)(1) || kind || body
 
 **Rooms and time.** The knocker sends the same knock again every 3 s until answered. The listener
 sends the same open again if it sees the same knock. A lost "ready" is sent again while the other side
-has not yet spoken. A live room sends a beat every 5 s and seals itself if it hears nothing for 20 s,
-or at `ttlSeconds` after going live. Defaults: knock waits 2 minutes, the choice 5 minutes, the
+has not yet spoken. A room sends a beat the moment it goes live (which tells the other side it is live, so a
+"ready" is only repeated if something was lost), then one every 5 s. It seals itself if it hears
+nothing for 20 s, or at `ttlSeconds` after going live. Defaults: knock waits 2 minutes, the choice 5 minutes, the
 handshake 30 s, and the words 3 minutes.
